@@ -74,13 +74,25 @@ public class TaskerChain<T> {
 
     // UTILITY
     @SuppressWarnings("unchecked")
-    public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
+    private TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, boolean async) {
         Runnable runnable = () -> {
             if (predicate.test((T) this.data.get())) {
                 this.abort.set(true);
             }
         };
         return this.lastAsync.get() ? this.async(runnable) : this.sync(runnable);
+    }
+
+    public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate) {
+        return this._abortIf(predicate, false);
+    }
+
+    public TaskerChain<T> abortIfAsync(@NonNull Predicate<T> predicate) {
+        return this._abortIf(predicate, true);
+    }
+
+    public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
+        return this._abortIf(predicate, this.lastAsync.get());
     }
 
     public TaskerChain<T> abortIfNull() {
