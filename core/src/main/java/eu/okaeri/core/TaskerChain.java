@@ -88,7 +88,8 @@ public class TaskerChain<T> {
     }
 
     // EXCEPTIONS
-    private TaskerChain<T> _handleException(@NonNull Function<Exception, T> handler, boolean async) {
+    @SuppressWarnings("unchecked")
+    private <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, boolean async) {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
@@ -97,24 +98,25 @@ public class TaskerChain<T> {
             if (exception == null) {
                 return;
             }
-            this.data.set(handler.apply(exception));
+            this.data.set(handler.apply((E) exception));
             this.exception.set(null);
         };
         this.tasks.add(new TaskerTask(task, async, true));
         return this;
     }
 
-    public TaskerChain<T> handleExceptionSync(@NonNull Function<Exception, T> handler) {
+    public <E extends Exception> TaskerChain<T> handleExceptionSync(@NonNull Function<E, T> handler) {
         return this._handleException(handler, false);
     }
 
-    public TaskerChain<T> handleExceptionAsync(@NonNull Function<Exception, T> handler) {
+    public <E extends Exception> TaskerChain<T> handleExceptionAsync(@NonNull Function<E, T> handler) {
         return this._handleException(handler, true);
     }
 
-    public TaskerChain<T> abortIfException(@NonNull Consumer<Exception> handler) {
+    @SuppressWarnings("unchecked")
+    public <E extends Exception> TaskerChain<T> abortIfException(@NonNull Consumer<E> handler) {
         return this._handleException((exception) -> {
-            handler.accept(exception);
+            handler.accept((E) exception);
             this.abort.set(true);
             return null;
         }, this.lastAsync.get());
