@@ -1,4 +1,4 @@
-# Okaeri Platform (WIP)
+# Okaeri Tasker
 
 ![License](https://img.shields.io/github/license/OkaeriPoland/okaeri-tasker)
 ![Total lines](https://img.shields.io/tokei/lines/github/OkaeriPoland/okaeri-tasker)
@@ -21,7 +21,7 @@ Add dependency to the `dependencies` section:
 ```xml
 <dependency>
   <groupId>eu.okaeri</groupId>
-  <artifactId>okaeri-tasker</artifactId>
+  <artifactId>okaeri-tasker-bukkit</artifactId>
   <version>0.0.3</version>
 </dependency>
 ```
@@ -32,7 +32,7 @@ maven { url "https://storehouse.okaeri.eu/repository/maven-public/" }
 ```
 Add dependency to the `maven` section:
 ```groovy
-implementation 'eu.okaeri:okaeri-tasker:0.0.3'
+implementation 'eu.okaeri:okaeri-tasker-bukkit:0.0.3'
 ```
 
 ## Example Usage
