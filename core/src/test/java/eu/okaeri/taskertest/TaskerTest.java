@@ -11,8 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TaskerTest {
 
@@ -46,7 +45,7 @@ public class TaskerTest {
                     builder.append("world");
                     return builder.toString();
                 })
-                .acceptAsync((String data) -> {
+                .acceptAsync(data -> {
                     System.out.println(Thread.currentThread().getName());
                     System.out.println(data.length());
                     System.out.println(data);
@@ -62,10 +61,10 @@ public class TaskerTest {
         Object result = this.pool.newChain()
                 .sync((Runnable) counter::getAndIncrement)
                 .async((Runnable) counter::getAndIncrement)
-                .acceptSync((Consumer<?>) (data) -> counter.getAndIncrement())
-                .acceptAsync((Consumer<?>) (data) -> counter.getAndIncrement())
-                .acceptSync((Function<?, ?>) (data) -> counter.getAndIncrement())
-                .acceptAsync((Function<?, ?>) (data) -> counter.getAndIncrement())
+                .acceptSync((Consumer<Object>) (data) -> counter.getAndIncrement())
+                .acceptAsync((Consumer<Object>) (data) -> counter.getAndIncrement())
+                .acceptSync((Function<Object, Object>) (data) -> counter.getAndIncrement())
+                .acceptAsync((Function<Object, Object>) (data) -> counter.getAndIncrement())
                 .await();
         assertEquals(6, counter.get());
         assertEquals(5, result);
@@ -128,6 +127,55 @@ public class TaskerTest {
                 })
                 .await();
         assertNull(result);
+        assertNull(watcher.get());
+    }
+
+    @Test
+    public void test_unhandled_exception_first() {
+        assertThrows(RuntimeException.class, () -> this.pool.newChain()
+                .sync(() -> {
+                    throw new RuntimeException();
+                })
+                .execute());
+    }
+
+    @Test
+    public void test_unhandled_exception_second() {
+        assertThrows(RuntimeException.class, () -> this.pool.newChain()
+                .sync(() -> {
+                    boolean hmm = true;
+                })
+                .sync(() -> {
+                    throw new RuntimeException();
+                })
+                .execute());
+    }
+
+    @Test
+    public void test_handled_exception() {
+        AtomicReference<Object> watcher = new AtomicReference<>("failed!");
+        this.pool.newChain()
+                .sync(() -> {
+                    throw new RuntimeException();
+                })
+                .handleExceptionSync(exception -> {
+                    watcher.set(null);
+                    return null;
+                })
+                .execute();
+        assertNull(watcher.get());
+    }
+
+    @Test
+    public void test_abort_if_exception() {
+        AtomicReference<Object> watcher = new AtomicReference<>();
+        this.pool.newChain()
+                .sync(() -> {
+                    throw new RuntimeException();
+                })
+                .abortIfException()
+                .sync(() -> watcher.set("failed!"))
+                .execute();
         assertNull(watcher.get());
     }
 }

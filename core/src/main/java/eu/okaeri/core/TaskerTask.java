@@ -7,4 +7,5 @@ import lombok.experimental.Delegate;
 class TaskerTask {
     @Delegate private final Runnable runnable;
     private final boolean async;
+    private final boolean exceptionHandler;
 }
