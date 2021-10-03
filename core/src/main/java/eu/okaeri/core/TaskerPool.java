@@ -7,7 +7,7 @@ public class TaskerPool {
 
     private final TaskerExecutor executor;
 
-    public TaskerChain newChain() {
-        return new TaskerChain(this.executor);
+    public TaskerChain<Object> newChain() {
+        return new TaskerChain<>(this.executor);
     }
 }
