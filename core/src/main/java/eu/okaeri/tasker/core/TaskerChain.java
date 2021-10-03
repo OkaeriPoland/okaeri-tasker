@@ -149,30 +149,36 @@ public class TaskerChain<T> {
             throw new RuntimeException("Cannot execute already executed chain");
         }
 
+        // add callback as last
+        Runnable abortCallback = () -> {
+
+            // handle exception after last task
+            Exception unhandled = this.exception.get();
+            if (unhandled != null) {
+                throw new RuntimeException("Unhandled chain exception", unhandled);
+            }
+
+            // callback consumer
+            if (consumer != null) {
+                consumer.accept((T) this.data.get());
+            }
+        };
+
         // run tasks
-        this._executeTask(0);
-
-        // handle exception after last task
-        Exception unhandled = this.exception.get();
-        if (unhandled != null) {
-            throw new RuntimeException("Unhandled chain exception", unhandled);
-        }
-
-        // callback consumer
-        if (consumer != null) {
-            consumer.accept((T) this.data.get());
-        }
+        this._executeTask(0, abortCallback);
     }
 
-    private void _executeTask(int index) {
+    private void _executeTask(int index, Runnable abortCallback) {
 
         // no more tasks
         if (index >= this.tasks.size()) {
+            abortCallback.run();
             return;
         }
 
         // abort!
         if (this.abort.get()) {
+            abortCallback.run();
             return;
         }
 
@@ -188,7 +194,7 @@ public class TaskerChain<T> {
         // prepare callback
         Runnable callback = () -> {
             this.lastAsync.set(task.isAsync());
-            this._executeTask(index + 1);
+            this._executeTask(index + 1, abortCallback);
         };
 
         // create handling runnable
