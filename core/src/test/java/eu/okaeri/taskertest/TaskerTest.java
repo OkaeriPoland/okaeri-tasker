@@ -1,8 +1,7 @@
 package eu.okaeri.taskertest;
 
-import eu.okaeri.core.Tasker;
 import eu.okaeri.core.TaskerExecutor;
-import eu.okaeri.core.TaskerPool;
+import eu.okaeri.core.Tasker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TaskerTest {
 
-    private TaskerPool pool;
+    private Tasker pool;
 
     @BeforeEach
     public void createPool() {

@@ -1,8 +1,22 @@
 package eu.okaeri.core;
 
-public final class Tasker {
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 
-    public static TaskerPool newPool(TaskerExecutor executor) {
-        return new TaskerPool(executor);
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
+public class Tasker {
+
+    public static Tasker newPool(TaskerExecutor executor) {
+        return new Tasker(executor);
+    }
+
+    private final TaskerExecutor executor;
+
+    public TaskerChain<Object> newChain() {
+        return new TaskerChain<>(this.executor);
+    }
+
+    public TaskerChain<Object> newSharedChain(String name) {
+        throw new RuntimeException("Not implemented yet");
     }
 }
