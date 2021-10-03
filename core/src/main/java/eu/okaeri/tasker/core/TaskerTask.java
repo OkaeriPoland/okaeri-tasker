@@ -1,4 +1,4 @@
-package eu.okaeri.core;
+package eu.okaeri.tasker.core;
 
 import lombok.Data;
 import lombok.experimental.Delegate;

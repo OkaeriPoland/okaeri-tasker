@@ -1,7 +1,7 @@
 package eu.okaeri.tasker.bukkit;
 
-import eu.okaeri.core.Tasker;
-import eu.okaeri.core.TaskerExecutor;
+import eu.okaeri.tasker.core.Tasker;
+import eu.okaeri.tasker.core.TaskerExecutor;
 import org.bukkit.plugin.Plugin;
 
 public class BukkitTasker extends Tasker {
