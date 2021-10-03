@@ -1,7 +1,7 @@
 package eu.okaeri.taskertest;
 
-import eu.okaeri.core.TaskerExecutor;
-import eu.okaeri.core.Tasker;
+import eu.okaeri.tasker.core.TaskerExecutor;
+import eu.okaeri.tasker.core.Tasker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

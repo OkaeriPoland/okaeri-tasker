@@ -1,6 +1,6 @@
 package eu.okaeri.tasker.bukkit;
 
-import eu.okaeri.core.TaskerExecutor;
+import eu.okaeri.tasker.core.TaskerExecutor;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
