@@ -2,10 +2,12 @@ package eu.okaeri.tasker.core;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -15,11 +17,12 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class TaskerChain<T> {
 
+    private final AtomicBoolean abort = new AtomicBoolean(false);
+    private final AtomicBoolean lastAsync = new AtomicBoolean(false);
+    private final AtomicBoolean executed = new AtomicBoolean(false);
+
     private final AtomicReference<Object> data = new AtomicReference<>();
-    private final AtomicReference<Boolean> abort = new AtomicReference<>(false);
-    private final AtomicReference<Boolean> lastAsync = new AtomicReference<>(false);
-    private final AtomicReference<Boolean> executed = new AtomicReference<>(false);
-    private final AtomicReference<Exception> exception = new AtomicReference<>(null);
+    private final AtomicReference<Exception> exception = new AtomicReference<>();
 
     private final List<TaskerTask> tasks = new ArrayList<>();
     private final TaskerExecutor executor;
@@ -209,9 +212,22 @@ public class TaskerChain<T> {
         this._execute(null);
     }
 
-    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    @SuppressWarnings("BusyWait")
     public T await() {
-        this._execute(null);
-        return (T) this.data.get();
+
+        AtomicBoolean done = new AtomicBoolean();
+        AtomicReference<T> resource = new AtomicReference<>();
+
+        this._execute((data) -> {
+            resource.set(data);
+            done.set(true);
+        });
+
+        while (!done.get()) {
+            Thread.sleep(1L);
+        }
+
+        return resource.get();
     }
 }
