@@ -1,5 +1,6 @@
-package eu.okaeri.tasker.core;
+package eu.okaeri.tasker.core.chain;
 
+import eu.okaeri.tasker.core.TaskerExecutor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -24,7 +25,7 @@ public class TaskerChain<T> {
     private final AtomicReference<Object> data = new AtomicReference<>();
     private final AtomicReference<Exception> exception = new AtomicReference<>();
 
-    private final List<TaskerTask> tasks = new ArrayList<>();
+    private final List<ChainTask> tasks = new ArrayList<>();
     private final TaskerExecutor executor;
 
     // SYNC
@@ -32,7 +33,7 @@ public class TaskerChain<T> {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
-        this.tasks.add(new TaskerTask(runnable, false, false));
+        this.tasks.add(new ChainTask(runnable, false, false));
         return this;
     }
 
@@ -56,7 +57,7 @@ public class TaskerChain<T> {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
-        this.tasks.add(new TaskerTask(runnable, true, false));
+        this.tasks.add(new ChainTask(runnable, true, false));
         return this;
     }
 
@@ -116,7 +117,7 @@ public class TaskerChain<T> {
             this.data.set(handler.apply((E) exception));
             this.exception.set(null);
         };
-        this.tasks.add(new TaskerTask(task, async, true));
+        this.tasks.add(new ChainTask(task, async, true));
         return this;
     }
 
@@ -183,7 +184,7 @@ public class TaskerChain<T> {
         }
 
         // get task
-        TaskerTask task = this.tasks.get(index);
+        ChainTask task = this.tasks.get(index);
 
         // check for unhandled exceptions
         Exception unhandled = this.exception.get();

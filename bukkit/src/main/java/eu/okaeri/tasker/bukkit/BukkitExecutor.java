@@ -16,6 +16,15 @@ public class BukkitExecutor implements TaskerExecutor {
     }
 
     @Override
+    public void schedule(Runnable runnable, boolean async) {
+        if (async) {
+            Bukkit.getScheduler().runTaskTimerAsynchronously(this.plugin, runnable, 1, 1);
+        } else {
+            Bukkit.getScheduler().runTaskTimer(this.plugin, runnable, 1, 1);
+        }
+    }
+
+    @Override
     public void run(Runnable runnable, Runnable callback, boolean async) {
         // prepare callback
         Runnable task = () -> {

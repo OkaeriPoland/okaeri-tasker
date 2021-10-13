@@ -25,6 +25,11 @@ public class TaskerTest {
             }
 
             @Override
+            public void schedule(Runnable runnable, boolean async) {
+                throw new RuntimeException("Not implemented yet!");
+            }
+
+            @Override
             public void run(Runnable runnable, Runnable callback, boolean async) {
                 runnable.run();
                 callback.run();
