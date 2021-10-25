@@ -18,21 +18,22 @@ public class TaskerTest {
 
     @BeforeEach
     public void createPool() {
-        this.pool = Tasker.newPool(new TaskerExecutor() {
+        this.pool = Tasker.newPool(new TaskerExecutor<Object>() {
             @Override
             public boolean isMain() {
                 return true;
             }
 
             @Override
-            public void schedule(Runnable runnable, boolean async) {
+            public Object schedule(Runnable runnable, boolean async) {
                 throw new RuntimeException("Not implemented yet!");
             }
 
             @Override
-            public void run(Runnable runnable, Runnable callback, boolean async) {
+            public Object run(Runnable runnable, Runnable callback, boolean async) {
                 runnable.run();
                 callback.run();
+                return null;
             }
         });
     }
