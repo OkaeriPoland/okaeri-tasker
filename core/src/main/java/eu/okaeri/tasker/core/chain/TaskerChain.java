@@ -1,6 +1,7 @@
 package eu.okaeri.tasker.core.chain;
 
 import eu.okaeri.tasker.core.TaskerExecutor;
+import eu.okaeri.tasker.core.TaskerFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
@@ -25,6 +26,7 @@ public class TaskerChain<T> {
     private final AtomicBoolean lastAsync = new AtomicBoolean(false);
     private final AtomicBoolean executed = new AtomicBoolean(false);
     private final AtomicBoolean done = new AtomicBoolean(false);
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
     private final AtomicReference<Object> data = new AtomicReference<>();
     private final AtomicReference<Exception> exception = new AtomicReference<>();
@@ -247,33 +249,7 @@ public class TaskerChain<T> {
     }
 
     public Future<T> executeFuture() {
-        return new Future<T>() {
-
-            @Override
-            public boolean cancel(boolean mayInterruptIfRunning) {
-                return TaskerChain.this.cancel();
-            }
-
-            @Override
-            public boolean isCancelled() {
-                return TaskerChain.this.abort.get();
-            }
-
-            @Override
-            public boolean isDone() {
-                return TaskerChain.this.done.get();
-            }
-
-            @Override
-            public T get() {
-                return TaskerChain.this.await();
-            }
-
-            @Override
-            public T get(long timeout, TimeUnit unit) {
-                return TaskerChain.this.await(timeout, unit);
-            }
-        };
+        return new TaskerFuture<>(this);
     }
 
     public T await() {
@@ -292,11 +268,12 @@ public class TaskerChain<T> {
                 resource::set,
                 (unhandledException) -> {
                     this.abort.set(true);
+                    this.cancelled.set(true);
                     exception.set(unhandledException);
                 }
         );
 
-        while (!this.done.get()) {
+        while (!this.isDone()) {
             if (unit != null) {
                 Duration waitDuration = Duration.between(start, Instant.now());
                 if (waitDuration.toNanos() >= unit.toNanos(timeout)) {
@@ -317,17 +294,26 @@ public class TaskerChain<T> {
 
     public boolean cancel() {
 
-        if (this.abort.get()) {
+        if (this.abort.get() || this.isCancelled()) {
             return false;
         }
 
         this.abort.set(true);
-        Object currentTask = this.currentTask.get();
+        this.cancelled.set(true);
 
+        Object currentTask = this.currentTask.get();
         if (currentTask != null) {
             this.executor.cancel(currentTask);
         }
 
         return true;
+    }
+
+    public boolean isDone() {
+        return this.done.get();
+    }
+
+    public boolean isCancelled() {
+        return this.cancelled.get();
     }
 }
