@@ -39,4 +39,9 @@ public class BukkitExecutor implements TaskerExecutor<BukkitTask> {
             return Bukkit.getScheduler().runTask(this.plugin, task);
         }
     }
+
+    @Override
+    public void cancel(BukkitTask task) {
+        task.cancel();
+    }
 }

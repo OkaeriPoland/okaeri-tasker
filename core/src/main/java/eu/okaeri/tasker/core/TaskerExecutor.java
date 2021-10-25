@@ -7,4 +7,6 @@ public interface TaskerExecutor<T> {
     T schedule(Runnable runnable, boolean async);
 
     T run(Runnable runnable, Runnable callback, boolean async);
+
+    void cancel(T task);
 }

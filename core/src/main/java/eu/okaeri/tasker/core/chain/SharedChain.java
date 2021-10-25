@@ -12,7 +12,7 @@ public class SharedChain<T> extends TaskerChain<T> {
     private final Queue<Runnable> queue;
     private final AtomicBoolean executed = new AtomicBoolean(false);
 
-    public SharedChain(TaskerExecutor executor, Queue<Runnable> queue) {
+    public SharedChain(TaskerExecutor<?> executor, Queue<Runnable> queue) {
         super(executor);
         this.queue = queue;
     }
