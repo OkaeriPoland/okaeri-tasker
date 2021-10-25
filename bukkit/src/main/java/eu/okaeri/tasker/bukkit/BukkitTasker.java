@@ -8,7 +8,7 @@ public class BukkitTasker extends Tasker {
 
     private final Plugin plugin;
 
-    protected BukkitTasker(TaskerExecutor executor, Plugin plugin) {
+    protected BukkitTasker(TaskerExecutor<?> executor, Plugin plugin) {
         super(executor);
         this.plugin = plugin;
     }

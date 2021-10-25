@@ -4,9 +4,10 @@ import eu.okaeri.tasker.core.TaskerExecutor;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 @RequiredArgsConstructor
-public class BukkitExecutor implements TaskerExecutor {
+public class BukkitExecutor implements TaskerExecutor<BukkitTask> {
 
     private final Plugin plugin;
 
@@ -16,16 +17,16 @@ public class BukkitExecutor implements TaskerExecutor {
     }
 
     @Override
-    public void schedule(Runnable runnable, boolean async) {
+    public BukkitTask schedule(Runnable runnable, boolean async) {
         if (async) {
-            Bukkit.getScheduler().runTaskTimerAsynchronously(this.plugin, runnable, 1, 1);
+            return Bukkit.getScheduler().runTaskTimerAsynchronously(this.plugin, runnable, 1, 1);
         } else {
-            Bukkit.getScheduler().runTaskTimer(this.plugin, runnable, 1, 1);
+            return Bukkit.getScheduler().runTaskTimer(this.plugin, runnable, 1, 1);
         }
     }
 
     @Override
-    public void run(Runnable runnable, Runnable callback, boolean async) {
+    public BukkitTask run(Runnable runnable, Runnable callback, boolean async) {
         // prepare callback
         Runnable task = () -> {
             runnable.run();
@@ -33,9 +34,9 @@ public class BukkitExecutor implements TaskerExecutor {
         };
         // run
         if (async) {
-            Bukkit.getScheduler().runTaskAsynchronously(this.plugin, task);
+            return Bukkit.getScheduler().runTaskAsynchronously(this.plugin, task);
         } else {
-            Bukkit.getScheduler().runTask(this.plugin, task);
+            return Bukkit.getScheduler().runTask(this.plugin, task);
         }
     }
 }
