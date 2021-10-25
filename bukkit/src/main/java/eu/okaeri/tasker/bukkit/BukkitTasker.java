@@ -6,11 +6,8 @@ import org.bukkit.plugin.Plugin;
 
 public class BukkitTasker extends Tasker {
 
-    private final Plugin plugin;
-
     protected BukkitTasker(TaskerExecutor<?> executor, Plugin plugin) {
         super(executor);
-        this.plugin = plugin;
     }
 
     public static BukkitTasker newPool(Plugin plugin) {

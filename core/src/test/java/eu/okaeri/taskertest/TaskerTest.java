@@ -35,6 +35,10 @@ public class TaskerTest {
                 callback.run();
                 return null;
             }
+
+            @Override
+            public void cancel(Object task) {
+            }
         });
     }
 
