@@ -18,12 +18,11 @@ public class Tasker {
     private final Map<String, Queue<Runnable>> sharedChainsPriority = new ConcurrentHashMap<>();
     private final Map<String, Object> sharedChainsTasks = new ConcurrentHashMap<>();
     private final Map<String, AtomicBoolean> sharedChainsLocks = new ConcurrentHashMap<>();
+    private final TaskerExecutor<?> executor;
 
     public static Tasker newPool(TaskerExecutor<?> executor) {
         return new Tasker(executor);
     }
-
-    private final TaskerExecutor<?> executor;
 
     public TaskerChain<Object> newChain() {
         return new TaskerChain<>(this.executor);
