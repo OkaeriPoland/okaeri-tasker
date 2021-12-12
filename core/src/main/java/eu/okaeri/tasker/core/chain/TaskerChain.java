@@ -265,12 +265,12 @@ public class TaskerChain<T> {
         AtomicReference<Exception> exception = new AtomicReference<>();
 
         this._execute(
-                resource::set,
-                (unhandledException) -> {
-                    this.abort.set(true);
-                    this.cancelled.set(true);
-                    exception.set(unhandledException);
-                }
+            resource::set,
+            (unhandledException) -> {
+                this.abort.set(true);
+                this.cancelled.set(true);
+                exception.set(unhandledException);
+            }
         );
 
         while (!this.isDone()) {

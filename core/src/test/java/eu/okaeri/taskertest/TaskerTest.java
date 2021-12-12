@@ -1,7 +1,7 @@
 package eu.okaeri.taskertest;
 
-import eu.okaeri.tasker.core.TaskerExecutor;
 import eu.okaeri.tasker.core.Tasker;
+import eu.okaeri.tasker.core.TaskerExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,22 +45,22 @@ public class TaskerTest {
     @Test
     public void test_basic() {
         String result = this.pool.newChain()
-                .sync(() -> {
-                    StringBuilder builder = new StringBuilder();
-                    builder.append("hello");
-                    for (int i = 0; i < 5; i++) {
-                        builder.append(" ");
-                    }
-                    builder.append("world");
-                    return builder.toString();
-                })
-                .acceptAsync(data -> {
-                    System.out.println(Thread.currentThread().getName());
-                    System.out.println(data.length());
-                    System.out.println(data);
-                    return data;
-                })
-                .await();
+            .sync(() -> {
+                StringBuilder builder = new StringBuilder();
+                builder.append("hello");
+                for (int i = 0; i < 5; i++) {
+                    builder.append(" ");
+                }
+                builder.append("world");
+                return builder.toString();
+            })
+            .acceptAsync(data -> {
+                System.out.println(Thread.currentThread().getName());
+                System.out.println(data.length());
+                System.out.println(data);
+                return data;
+            })
+            .await();
         assertEquals("hello     world", result);
     }
 
@@ -68,13 +68,13 @@ public class TaskerTest {
     public void test_execution_of_all_methods() {
         AtomicInteger counter = new AtomicInteger(0);
         Object result = this.pool.newChain()
-                .sync((Runnable) counter::getAndIncrement)
-                .async((Runnable) counter::getAndIncrement)
-                .acceptSync((Consumer<Object>) (data) -> counter.getAndIncrement())
-                .acceptAsync((Consumer<Object>) (data) -> counter.getAndIncrement())
-                .acceptSync((Function<Object, Object>) (data) -> counter.getAndIncrement())
-                .acceptAsync((Function<Object, Object>) (data) -> counter.getAndIncrement())
-                .await();
+            .sync((Runnable) counter::getAndIncrement)
+            .async((Runnable) counter::getAndIncrement)
+            .acceptSync((Consumer<Object>) (data) -> counter.getAndIncrement())
+            .acceptAsync((Consumer<Object>) (data) -> counter.getAndIncrement())
+            .acceptSync((Function<Object, Object>) (data) -> counter.getAndIncrement())
+            .acceptAsync((Function<Object, Object>) (data) -> counter.getAndIncrement())
+            .await();
         assertEquals(6, counter.get());
         assertEquals(5, result);
     }
@@ -83,13 +83,13 @@ public class TaskerTest {
     public void test_abort_on_null_sync_async() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-                .sync(() -> null)
-                .abortIfNull()
-                .acceptAsync((Object data) -> {
-                    watcher.set("failed!");
-                    return data;
-                })
-                .await();
+            .sync(() -> null)
+            .abortIfNull()
+            .acceptAsync((Object data) -> {
+                watcher.set("failed!");
+                return data;
+            })
+            .await();
         assertNull(result);
         assertNull(watcher.get());
     }
@@ -98,13 +98,13 @@ public class TaskerTest {
     public void test_abort_on_null_sync_sync() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-                .sync(() -> null)
-                .abortIfNull()
-                .acceptSync((Object data) -> {
-                    watcher.set("failed!");
-                    return data;
-                })
-                .await();
+            .sync(() -> null)
+            .abortIfNull()
+            .acceptSync((Object data) -> {
+                watcher.set("failed!");
+                return data;
+            })
+            .await();
         assertNull(result);
         assertNull(watcher.get());
     }
@@ -113,13 +113,13 @@ public class TaskerTest {
     public void test_abort_on_null_async_sync() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-                .async(() -> null)
-                .abortIfNull()
-                .acceptSync((Object data) -> {
-                    watcher.set("failed!");
-                    return data;
-                })
-                .await();
+            .async(() -> null)
+            .abortIfNull()
+            .acceptSync((Object data) -> {
+                watcher.set("failed!");
+                return data;
+            })
+            .await();
         assertNull(result);
         assertNull(watcher.get());
     }
@@ -128,13 +128,13 @@ public class TaskerTest {
     public void test_abort_on_null_async_async() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-                .async(() -> null)
-                .abortIfNull()
-                .acceptAsync((Object data) -> {
-                    watcher.set("failed!");
-                    return data;
-                })
-                .await();
+            .async(() -> null)
+            .abortIfNull()
+            .acceptAsync((Object data) -> {
+                watcher.set("failed!");
+                return data;
+            })
+            .await();
         assertNull(result);
         assertNull(watcher.get());
     }
@@ -142,36 +142,36 @@ public class TaskerTest {
     @Test
     public void test_unhandled_exception_first() {
         assertThrows(RuntimeException.class, () -> this.pool.newChain()
-                .sync(() -> {
-                    throw new RuntimeException();
-                })
-                .execute());
+            .sync(() -> {
+                throw new RuntimeException();
+            })
+            .execute());
     }
 
     @Test
     public void test_unhandled_exception_second() {
         assertThrows(RuntimeException.class, () -> this.pool.newChain()
-                .sync(() -> {
-                    boolean hmm = true;
-                })
-                .sync(() -> {
-                    throw new RuntimeException();
-                })
-                .execute());
+            .sync(() -> {
+                boolean hmm = true;
+            })
+            .sync(() -> {
+                throw new RuntimeException();
+            })
+            .execute());
     }
 
     @Test
     public void test_handled_exception() {
         AtomicReference<Object> watcher = new AtomicReference<>("failed!");
         this.pool.newChain()
-                .sync(() -> {
-                    throw new RuntimeException();
-                })
-                .handleExceptionSync(exception -> {
-                    watcher.set(null);
-                    return null;
-                })
-                .execute();
+            .sync(() -> {
+                throw new RuntimeException();
+            })
+            .handleExceptionSync(exception -> {
+                watcher.set(null);
+                return null;
+            })
+            .execute();
         assertNull(watcher.get());
     }
 
@@ -179,12 +179,12 @@ public class TaskerTest {
     public void test_abort_if_exception() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         this.pool.newChain()
-                .sync(() -> {
-                    throw new RuntimeException();
-                })
-                .abortIfException()
-                .sync(() -> watcher.set("failed!"))
-                .execute();
+            .sync(() -> {
+                throw new RuntimeException();
+            })
+            .abortIfException()
+            .sync(() -> watcher.set("failed!"))
+            .execute();
         assertNull(watcher.get());
     }
 }
