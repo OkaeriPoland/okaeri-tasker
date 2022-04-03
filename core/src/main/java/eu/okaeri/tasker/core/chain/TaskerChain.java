@@ -15,10 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 public class TaskerChain<T> {
 
@@ -109,6 +106,18 @@ public class TaskerChain<T> {
 
     public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
         return this._abortIf(predicate, this.lastAsync.get());
+    }
+
+    public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier) {
+        return this._abortIf((unused) -> supplier.getAsBoolean(), false);
+    }
+
+    public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier) {
+        return this._abortIf((unused) -> supplier.getAsBoolean(), true);
+    }
+
+    public TaskerChain<T> abortIf(@NonNull BooleanSupplier supplier) {
+        return this._abortIf((unused) -> supplier.getAsBoolean(), this.lastAsync.get());
     }
 
     public TaskerChain<T> abortIfNull() {
