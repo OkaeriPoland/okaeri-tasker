@@ -283,6 +283,9 @@ public class TaskerChain<T> {
         );
 
         while (!this.isDone()) {
+            if (this.isCancelled()) {
+                throw new TimeoutException("Task was cancelled");
+            }
             if (unit != null) {
                 Duration waitDuration = Duration.between(start, Instant.now());
                 if (waitDuration.toNanos() >= unit.toNanos(timeout)) {
