@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class TaskerFuture<T> implements Future<T> {
 
-    private final TaskerChain<T> chain;
+    protected final TaskerChain<T> chain;
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {

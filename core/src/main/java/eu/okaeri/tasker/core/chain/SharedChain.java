@@ -9,8 +9,8 @@ import java.util.function.Consumer;
 
 public class SharedChain<T> extends TaskerChain<T> {
 
-    private final Queue<Runnable> queue;
-    private final AtomicBoolean executed = new AtomicBoolean(false);
+    protected final Queue<Runnable> queue;
+    protected final AtomicBoolean executed = new AtomicBoolean(false);
 
     public SharedChain(TaskerExecutor<?> executor, Queue<Runnable> queue) {
         super(executor);

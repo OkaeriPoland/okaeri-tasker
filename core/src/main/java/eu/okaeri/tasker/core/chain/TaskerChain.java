@@ -19,18 +19,18 @@ import java.util.function.*;
 
 public class TaskerChain<T> {
 
-    private final AtomicBoolean abort = new AtomicBoolean(false);
-    private final AtomicBoolean lastAsync = new AtomicBoolean(false);
-    private final AtomicBoolean executed = new AtomicBoolean(false);
-    private final AtomicBoolean done = new AtomicBoolean(false);
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    protected final AtomicBoolean abort = new AtomicBoolean(false);
+    protected final AtomicBoolean lastAsync = new AtomicBoolean(false);
+    protected final AtomicBoolean executed = new AtomicBoolean(false);
+    protected final AtomicBoolean done = new AtomicBoolean(false);
+    protected final AtomicBoolean cancelled = new AtomicBoolean(false);
 
-    private final AtomicReference<Object> data = new AtomicReference<>();
-    private final AtomicReference<Exception> exception = new AtomicReference<>();
-    private final AtomicReference<Object> currentTask = new AtomicReference<>();
+    protected final AtomicReference<Object> data = new AtomicReference<>();
+    protected final AtomicReference<Exception> exception = new AtomicReference<>();
+    protected final AtomicReference<Object> currentTask = new AtomicReference<>();
 
-    private final List<ChainTask> tasks = new ArrayList<>();
-    private final TaskerExecutor<Object> executor;
+    protected final List<ChainTask> tasks = new ArrayList<>();
+    protected final TaskerExecutor<Object> executor;
 
     @SuppressWarnings("unchecked")
     public TaskerChain(TaskerExecutor<?> executor) {
@@ -87,7 +87,7 @@ public class TaskerChain<T> {
 
     // UTILITY
     @SuppressWarnings("unchecked")
-    private TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, boolean async) {
+    protected TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, boolean async) {
         Runnable runnable = () -> {
             if (predicate.test((T) this.data.get())) {
                 this.abort.set(true);
@@ -126,7 +126,7 @@ public class TaskerChain<T> {
 
     // EXCEPTIONS
     @SuppressWarnings("unchecked")
-    private <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, boolean async) {
+    protected <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, boolean async) {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
@@ -165,7 +165,7 @@ public class TaskerChain<T> {
 
     // EXECUTION
     @SuppressWarnings("unchecked")
-    private void _execute(Consumer<T> consumer, Consumer<Exception> unhandledExceptionConsumer) {
+    protected void _execute(Consumer<T> consumer, Consumer<Exception> unhandledExceptionConsumer) {
 
         if (this.executed.get()) {
             throw new RuntimeException("Cannot execute already executed chain");
@@ -197,7 +197,7 @@ public class TaskerChain<T> {
         this._executeTask(0, abortCallback, unhandledExceptionConsumer);
     }
 
-    private void _executeTask(int index, Runnable abortCallback, Consumer<Exception> unhandledExceptionConsumer) {
+    protected void _executeTask(int index, Runnable abortCallback, Consumer<Exception> unhandledExceptionConsumer) {
 
         // no more tasks
         if (index >= this.tasks.size()) {
