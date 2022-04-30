@@ -5,7 +5,7 @@ import lombok.experimental.Delegate;
 
 @Data
 class ChainTask {
-    @Delegate private final Runnable runnable;
-    private final boolean async;
-    private final boolean exceptionHandler;
+    @Delegate protected final Runnable runnable;
+    protected final boolean async;
+    protected final boolean exceptionHandler;
 }

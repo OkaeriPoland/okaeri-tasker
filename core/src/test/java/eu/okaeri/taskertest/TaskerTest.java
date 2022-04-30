@@ -2,9 +2,11 @@ package eu.okaeri.taskertest;
 
 import eu.okaeri.tasker.core.Tasker;
 import eu.okaeri.tasker.core.TaskerExecutor;
+import lombok.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -26,6 +28,11 @@ public class TaskerTest {
 
             @Override
             public Object schedule(Runnable runnable, boolean async) {
+                throw new RuntimeException("Not implemented yet!");
+            }
+
+            @Override
+            public Object schedule(@NonNull Runnable runnable, @NonNull Duration delay, @NonNull Duration rate, boolean async) {
                 throw new RuntimeException("Not implemented yet!");
             }
 

@@ -2,9 +2,12 @@ package eu.okaeri.tasker.core;
 
 import eu.okaeri.tasker.core.chain.SharedChain;
 import eu.okaeri.tasker.core.chain.TaskerChain;
+import eu.okaeri.tasker.core.delayer.Delayer;
 import lombok.AccessLevel;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,25 +17,33 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class Tasker {
 
-    private final Map<String, Queue<Runnable>> sharedChains = new ConcurrentHashMap<>();
-    private final Map<String, Queue<Runnable>> sharedChainsPriority = new ConcurrentHashMap<>();
-    private final Map<String, Object> sharedChainsTasks = new ConcurrentHashMap<>();
-    private final Map<String, AtomicBoolean> sharedChainsLocks = new ConcurrentHashMap<>();
-    private final TaskerExecutor<?> executor;
+    protected final Map<String, Queue<Runnable>> sharedChains = new ConcurrentHashMap<>();
+    protected final Map<String, Queue<Runnable>> sharedChainsPriority = new ConcurrentHashMap<>();
+    protected final Map<String, Object> sharedChainsTasks = new ConcurrentHashMap<>();
+    protected final Map<String, AtomicBoolean> sharedChainsLocks = new ConcurrentHashMap<>();
+    protected final TaskerExecutor<?> executor;
 
     public static Tasker newPool(TaskerExecutor<?> executor) {
         return new Tasker(executor);
+    }
+
+    public Delayer newDelayer(@NonNull Duration duration) {
+        return Delayer.of(this.executor, duration);
+    }
+
+    public Delayer newDelayer(@NonNull Duration duration, @NonNull Duration checkRate) {
+        return Delayer.of(this.executor, duration);
     }
 
     public TaskerChain<Object> newChain() {
         return new TaskerChain<>(this.executor);
     }
 
-    public TaskerChain<Object> newSharedChain(String name) {
+    public TaskerChain<Object> newSharedChain(@NonNull String name) {
         return this.newSharedChain(name, false);
     }
 
-    public TaskerChain<Object> newSharedChain(String name, boolean priority) {
+    public TaskerChain<Object> newSharedChain(@NonNull String name, boolean priority) {
 
         // no queue, start task
         if (!this.sharedChainsTasks.containsKey(name)) {
@@ -44,12 +55,12 @@ public class Tasker {
         return new SharedChain<>(this.executor, this.getSharedChainQueue(name, priority));
     }
 
-    private Queue<Runnable> getSharedChainQueue(String name, boolean priority) {
+    protected Queue<Runnable> getSharedChainQueue(String name, boolean priority) {
         Map<String, Queue<Runnable>> queueMap = priority ? this.sharedChainsPriority : this.sharedChains;
         return queueMap.computeIfAbsent(name, (n) -> new ConcurrentLinkedQueue<>());
     }
 
-    private void execSharedChainQueue(String name) {
+    protected void execSharedChainQueue(String name) {
 
         // still locked
         AtomicBoolean lock = this.sharedChainsLocks.computeIfAbsent(name, (n) -> new AtomicBoolean(false));
