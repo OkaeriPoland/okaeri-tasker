@@ -16,6 +16,9 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class Delayer {
 
+    private static final Runnable NOOP_RUNNABLE = () -> {
+    };
+
     protected final AtomicReference<Object> task = new AtomicReference<>(null);
     protected final AtomicReference<Instant> started = new AtomicReference<>(null);
     protected final AtomicBoolean abort = new AtomicBoolean(false);
@@ -41,15 +44,39 @@ public class Delayer {
         return this;
     }
 
-    public Delayer abortIfThen(@NonNull Supplier<Boolean> supplier, @NonNull Runnable runnable) {
-        this.abortWhen.add(() -> {
+    public Delayer abortIfNot(@NonNull Supplier<Boolean> supplier) {
+        return this.abortIf(() -> !supplier.get());
+    }
+
+    public Delayer abortIfThen(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenAbort) {
+       return this.abortIfThenOrElse(supplier, whenAbort, NOOP_RUNNABLE);
+    }
+
+    public Delayer abortIfNotThen(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfThen(() -> !supplier.get(), whenAbort);
+    }
+
+    public Delayer abortIfOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(supplier, NOOP_RUNNABLE, whenContinue);
+    }
+
+    public Delayer abortIfNotOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfOrElse(() -> !supplier.get(), whenContinue);
+    }
+
+    public Delayer abortIfThenOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIf(() -> {
             if (supplier.get()) {
-                runnable.run();
+                whenAbort.run();
                 return true;
             }
+            whenContinue.run();
             return false;
         });
-        return this;
+    }
+
+    public Delayer abortIfNotThenOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(() -> !supplier.get(), whenAbort, whenContinue);
     }
 
     public Delayer delayed(@NonNull Runnable action) {
