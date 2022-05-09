@@ -32,7 +32,7 @@ public class Tasker {
     }
 
     public Delayer newDelayer(@NonNull Duration duration, @NonNull Duration checkRate) {
-        return Delayer.of(this.executor, duration);
+        return Delayer.of(this.executor, duration, checkRate);
     }
 
     public TaskerChain<Object> newChain() {
