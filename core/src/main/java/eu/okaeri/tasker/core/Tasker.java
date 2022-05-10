@@ -23,7 +23,7 @@ public class Tasker {
     protected final Map<String, AtomicBoolean> sharedChainsLocks = new ConcurrentHashMap<>();
     protected final TaskerExecutor<?> executor;
 
-    public static Tasker newPool(TaskerExecutor<?> executor) {
+    public static Tasker newPool(@NonNull TaskerExecutor<?> executor) {
         return new Tasker(executor);
     }
 
@@ -55,12 +55,12 @@ public class Tasker {
         return new SharedChain<>(this.executor, this.getSharedChainQueue(name, priority));
     }
 
-    protected Queue<Runnable> getSharedChainQueue(String name, boolean priority) {
+    protected Queue<Runnable> getSharedChainQueue(@NonNull String name, boolean priority) {
         Map<String, Queue<Runnable>> queueMap = priority ? this.sharedChainsPriority : this.sharedChains;
         return queueMap.computeIfAbsent(name, (n) -> new ConcurrentLinkedQueue<>());
     }
 
-    protected void execSharedChainQueue(String name) {
+    protected void execSharedChainQueue(@NonNull String name) {
 
         // still locked
         AtomicBoolean lock = this.sharedChainsLocks.computeIfAbsent(name, (n) -> new AtomicBoolean(false));

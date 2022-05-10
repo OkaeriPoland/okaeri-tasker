@@ -33,7 +33,7 @@ public class TaskerChain<T> {
     protected final TaskerExecutor<Object> executor;
 
     @SuppressWarnings("unchecked")
-    public TaskerChain(TaskerExecutor<?> executor) {
+    public TaskerChain(@NonNull TaskerExecutor<?> executor) {
         this.executor = (TaskerExecutor<Object>) executor;
     }
 
