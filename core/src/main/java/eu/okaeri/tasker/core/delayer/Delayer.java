@@ -24,7 +24,9 @@ public class Delayer {
     protected final AtomicBoolean abort = new AtomicBoolean(false);
 
     protected final List<Supplier<Boolean>> abortWhen = new ArrayList<>();
+    protected final List<Supplier<Boolean>> forceWhen = new ArrayList<>();
     protected final List<Runnable> actions = new ArrayList<>();
+    protected final List<Runnable> forcedActions = new ArrayList<>();
 
     protected final TaskerExecutor<Object> executor;
     protected final Duration duration;
@@ -79,8 +81,53 @@ public class Delayer {
         return this.abortIfThenOrElse(() -> !supplier.get(), whenAbort, whenContinue);
     }
 
+    public Delayer forceIf(@NonNull Supplier<Boolean> supplier) {
+        this.forceWhen.add(supplier);
+        return this;
+    }
+
+    public Delayer forceIfNot(@NonNull Supplier<Boolean> supplier) {
+        return this.forceIf(() -> !supplier.get());
+    }
+
+    public Delayer forceIfThen(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenForce) {
+        return this.forceIfThenOrElse(supplier, whenForce, NOOP_RUNNABLE);
+    }
+
+    public Delayer forceIfNotThen(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenForce) {
+        return this.forceIfThen(() -> !supplier.get(), whenForce);
+    }
+
+    public Delayer forceIfOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenContinue) {
+        return this.forceIfThenOrElse(supplier, NOOP_RUNNABLE, whenContinue);
+    }
+
+    public Delayer forceIfNotOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenContinue) {
+        return this.forceIfOrElse(() -> !supplier.get(), whenContinue);
+    }
+
+    public Delayer forceIfThenOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenForce, @NonNull Runnable whenContinue) {
+        return this.forceIf(() -> {
+            if (supplier.get()) {
+                whenForce.run();
+                return true;
+            }
+            whenContinue.run();
+            return false;
+        });
+    }
+
+    public Delayer forceIfNotThenOrElse(@NonNull Supplier<Boolean> supplier, @NonNull Runnable whenForce, @NonNull Runnable whenContinue) {
+        return this.forceIfThenOrElse(() -> !supplier.get(), whenForce, whenContinue);
+    }
+
     public Delayer delayed(@NonNull Runnable action) {
         this.actions.add(action);
+        return this;
+    }
+
+    public Delayer forced(@NonNull Runnable action) {
+        this.forcedActions.add(action);
         return this;
     }
 
@@ -124,6 +171,24 @@ public class Delayer {
             }
 
             this.cancel();
+            return;
+        }
+
+        // check force
+        for (Supplier<Boolean> forceWhenSupplier : this.forceWhen) {
+
+            try {
+                if (!forceWhenSupplier.get()) {
+                    continue;
+                }
+            } catch (Throwable throwable) {
+                this.cancel();
+                throw throwable;
+            }
+
+            this.cancel();
+            this.forcedActions.forEach(Runnable::run);
+            this.actions.forEach(Runnable::run);
             return;
         }
 
