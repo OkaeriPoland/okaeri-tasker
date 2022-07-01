@@ -93,7 +93,7 @@ public class TaskerChain<T> {
                 this.abort.set(true);
             }
         };
-        return this.lastAsync.get() ? this.async(runnable) : this.sync(runnable);
+        return async ? this.async(runnable) : this.sync(runnable);
     }
 
     public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate) {
