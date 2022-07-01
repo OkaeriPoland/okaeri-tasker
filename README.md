@@ -73,3 +73,72 @@ this.tasker.newChain()
         })
         .execute();
 ```
+
+## Real-life uses
+
+Various snippets directly from the internal okaeri codebase. May and will include 
+code interacting with other libraries like [okaeri-i18n](okaeri-i18n) or references
+to other internal code. All of these were built with [okaeri-platform](https://github.com/OkaeriPoland/okaeri-platform).
+
+### Delayed teleport
+
+Delayed teleportation for warps and similar. Checks if distance between starting and current 
+location is below 1. Executes action when there was no rejected state for the delayed time.
+
+```java
+Duration teleportDuration = this.spawnConfig.getTeleportDuration();
+Location startingLocation = player.getLocation().clone();
+
+this.tasker.newDelayer(teleportDuration, Duration.ofSeconds(1))
+    .abortIfNot(player::isOnline)
+    .abortIfThen(
+        () -> startingLocation.distanceSquared(player.getLocation()) > 0.25, // sqrt(1)=0.25
+        () -> this.i18n.get(this.messages.getTeleportationCancelledError()).sendTo(player)
+    )
+    .delayed(() -> {
+        this.module.teleportToSpawn(player, true);
+        this.i18n.get(this.messages.getTeleportationSuccess()).sendTo(player);
+    })
+    .executeAsync();
+```
+
+### Detecting hook landing
+
+Wait-loop for detecting hook landing in the `PlayerFishEvent` for state `FISHING`.
+Executes code on condition only using #forced or timeouts with no action.
+Note that using #delayed would allow execution on force or after timeout.
+
+```java
+this.tasker.newDelayer(Duration.ofSeconds(10))
+    .abortIf(hook::isDead)
+    .abortIfNot(player::isOnline)
+    .forceIf(hook::isInWater)
+    .forced(() -> {
+        this.i18n.get(this.messages.getFishingStateInfo())
+            .with("chance", (1d / (double) fishesCaughtAtHook) * 100d)
+            .target(BukkitMessageTarget.ACTION_BAR)
+            .sendTo(player);
+    })
+    .executeSync();
+```
+
+### Async book processing
+
+Allows book filtering in `PlayerEditBookEvent` using [OK! AI.Censor] to 
+take place without doing blocking I/O in the main thread.
+
+```java
+this.tasker.newChain()
+    .async(() -> {
+        String contents = this.bookToString(event.getNewBookMeta());
+        return new AsyncPlayerTextEvent(player, contents, "Book").call();
+    })
+    .abortIf(textEvent -> !textEvent.isCancelled())
+    .sync(() -> {
+        BookMeta bookMeta = (BookMeta) book.getItemMeta();
+        bookMeta.setPages(event.getPreviousBookMeta().getPages());
+        book.setItemMeta(bookMeta);
+        book.setType(Material.WRITABLE_BOOK);
+    })
+    .execute();
+```
