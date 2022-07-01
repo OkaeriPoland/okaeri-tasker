@@ -87,41 +87,77 @@ public class TaskerChain<T> {
 
     // UTILITY
     @SuppressWarnings("unchecked")
-    protected TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, boolean async) {
+    protected TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, boolean async, Runnable abortRunnable) {
         Runnable runnable = () -> {
             if (predicate.test((T) this.data.get())) {
                 this.abort.set(true);
+
+                if (abortRunnable != null) {
+                    if (async) {
+                        this.async(abortRunnable);
+                    } else {
+                        this.sync(abortRunnable);
+                    }
+                }
             }
         };
         return async ? this.async(runnable) : this.sync(runnable);
     }
 
+    public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate, Runnable abortRunnable) {
+        return this._abortIf(predicate, false, abortRunnable);
+    }
+
     public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, false);
+        return this.abortIfSync(predicate, null);
+    }
+
+    public TaskerChain<T> abortIfAsync(@NonNull Predicate<T> predicate, Runnable abortRunnable) {
+        return this._abortIf(predicate, true, abortRunnable);
     }
 
     public TaskerChain<T> abortIfAsync(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, true);
+        return this.abortIfAsync(predicate, null);
+    }
+
+    public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate, Runnable abortRunnable) {
+        return this._abortIf(predicate, this.lastAsync.get(), abortRunnable);
     }
 
     public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, this.lastAsync.get());
+        return this.abortIf(predicate, null);
+    }
+
+    public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier, Runnable abortRunnable) {
+        return this._abortIf((unused) -> supplier.getAsBoolean(), false, abortRunnable);
     }
 
     public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf((unused) -> supplier.getAsBoolean(), false);
+        return this.abortIfSync(supplier, null);
+    }
+
+    public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier, Runnable abortRunnable) {
+        return this._abortIf((unused) -> supplier.getAsBoolean(), true, abortRunnable);
     }
 
     public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf((unused) -> supplier.getAsBoolean(), true);
+        return this.abortIfAsync(supplier, null);
+    }
+
+    public TaskerChain<T> abortIf(@NonNull BooleanSupplier supplier, Runnable abortRunnable) {
+        return this._abortIf((unused) -> supplier.getAsBoolean(), this.lastAsync.get(), abortRunnable);
     }
 
     public TaskerChain<T> abortIf(@NonNull BooleanSupplier supplier) {
-        return this._abortIf((unused) -> supplier.getAsBoolean(), this.lastAsync.get());
+        return this.abortIf(supplier, null);
+    }
+
+    public TaskerChain<T> abortIfNull(Runnable abortRunnable) {
+        return this.abortIf(Objects::isNull, abortRunnable);
     }
 
     public TaskerChain<T> abortIfNull() {
-        return this.abortIf(Objects::isNull);
+        return this.abortIfNull(null);
     }
 
     // EXCEPTIONS
