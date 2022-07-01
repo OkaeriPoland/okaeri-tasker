@@ -124,8 +124,8 @@ this.tasker.newDelayer(Duration.ofSeconds(10))
 
 ### Async book processing
 
-Allows book filtering in `PlayerEditBookEvent` using [OK! AI.Censor] to 
-take place without doing blocking I/O in the main thread.
+Allows book filtering in `PlayerEditBookEvent` using [OK! AI.Censor](https://www.okaeri.eu/services/aicensor) to 
+take place without doing blocking I/O in the main thread. Can also be applied in similar fashion to sign editing.
 
 ```java
 this.tasker.newChain()
