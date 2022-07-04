@@ -27,6 +27,7 @@ public class TaskerChain<T> {
 
     protected final AtomicReference<Object> data = new AtomicReference<>();
     protected final AtomicReference<Exception> exception = new AtomicReference<>();
+    protected final AtomicReference<Exception> trace = new AtomicReference<>();
     protected final AtomicReference<Object> currentTask = new AtomicReference<>();
 
     protected final List<ChainTask> tasks = new ArrayList<>();
@@ -171,6 +172,9 @@ public class TaskerChain<T> {
             throw new RuntimeException("Cannot execute already executed chain");
         }
 
+        // save start trace
+        this.trace.set(new RuntimeException("Chain trace point"));
+
         // add callback as last
         Runnable abortCallback = () -> {
 
@@ -180,7 +184,8 @@ public class TaskerChain<T> {
                 if (unhandledExceptionConsumer != null) {
                     unhandledExceptionConsumer.accept(unhandled);
                 } else {
-                    throw new RuntimeException("Unhandled chain exception", unhandled);
+                    Throwable throwable = this.trace.get().initCause(unhandled);
+                    throw new RuntimeException("Unhandled chain exception", throwable);
                 }
             }
 
