@@ -231,7 +231,8 @@ public class TaskerChain<T> {
                     return;
                 }
             } else {
-                throw new RuntimeException("Unhandled chain exception", unhandled);
+                Throwable throwable = this.trace.get().initCause(unhandled);
+                throw new RuntimeException("Unhandled chain exception", throwable);
             }
         }
 
