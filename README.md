@@ -27,7 +27,7 @@ Add dependency to the `dependencies` section:
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bukkit</artifactId>
-  <version>1.1.8</version>
+  <version>1.1.9</version>
 </dependency>
 ```
 
@@ -42,7 +42,7 @@ maven { url "https://storehouse.okaeri.eu/repository/maven-public/" }
 Add dependency to the `maven` section:
 
 ```groovy
-implementation 'eu.okaeri:okaeri-tasker-bukkit:1.1.8'
+implementation 'eu.okaeri:okaeri-tasker-bukkit:1.1.9'
 ```
 
 ## Example usage
