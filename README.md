@@ -133,7 +133,7 @@ this.tasker.newChain()
         String contents = this.bookToString(event.getNewBookMeta());
         return new AsyncPlayerTextEvent(player, contents, "Book").call();
     })
-    .abortIf(textEvent -> !textEvent.isCancelled())
+    .abortIfNot(AsyncPlayerTextEvent::isCancelled)
     .sync(() -> {
         BookMeta bookMeta = (BookMeta) book.getItemMeta();
         bookMeta.setPages(event.getPreviousBookMeta().getPages());
