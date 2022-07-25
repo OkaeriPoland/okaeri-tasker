@@ -19,6 +19,9 @@ import java.util.function.*;
 
 public class TaskerChain<T> {
 
+    private static final Runnable NOOP_RUNNABLE = () -> {
+    };
+
     protected final AtomicBoolean abort = new AtomicBoolean(false);
     protected final AtomicBoolean lastAsync = new AtomicBoolean(false);
     protected final AtomicBoolean executed = new AtomicBoolean(false);
@@ -97,6 +100,10 @@ public class TaskerChain<T> {
         return this.lastAsync.get() ? this.async(runnable) : this.sync(runnable);
     }
 
+    public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
+        return this._abortIf(predicate, this.lastAsync.get());
+    }
+
     public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate) {
         return this._abortIf(predicate, false);
     }
@@ -105,20 +112,195 @@ public class TaskerChain<T> {
         return this._abortIf(predicate, true);
     }
 
-    public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, this.lastAsync.get());
+    public TaskerChain<T> abortIfNot(@NonNull Predicate<T> predicate) {
+        return this._abortIf(data -> !predicate.test(data), this.lastAsync.get());
     }
 
-    public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf((unused) -> supplier.getAsBoolean(), false);
+    public TaskerChain<T> abortIfSyncNot(@NonNull Predicate<T> predicate) {
+        return this._abortIf(data -> !predicate.test(data), false);
     }
 
-    public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf((unused) -> supplier.getAsBoolean(), true);
+    public TaskerChain<T> abortIfAsyncNot(@NonNull Predicate<T> predicate) {
+        return this._abortIf(data -> !predicate.test(data), true);
+    }
+
+    public TaskerChain<T> abortIfThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
+        return this.abortIfThenOrElse(predicate, whenAbort, NOOP_RUNNABLE);
+    }
+
+    public TaskerChain<T> abortIfSyncThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
+        return this.abortIfSyncThenOrElse(predicate, whenAbort, NOOP_RUNNABLE);
+    }
+
+    public TaskerChain<T> abortIfAsyncThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
+        return this.abortIfAsyncThenOrElse(predicate, whenAbort, NOOP_RUNNABLE);
+    }
+
+    public TaskerChain<T> abortIfNotThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
+        return this.abortIfThen(data -> !predicate.test(data), whenAbort);
+    }
+
+    public TaskerChain<T> abortIfSyncNotThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
+        return this.abortIfSyncThen(data -> !predicate.test(data), whenAbort);
+    }
+
+    public TaskerChain<T> abortIfAsyncNotThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
+        return this.abortIfAsyncThen(data -> !predicate.test(data), whenAbort);
+    }
+
+    public TaskerChain<T> abortIfOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(predicate, NOOP_RUNNABLE, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncThenOrElse(predicate, NOOP_RUNNABLE, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncThenOrElse(predicate, NOOP_RUNNABLE, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfNotOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
+        return this.abortIfOrElse(data -> !predicate.test(data), whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncNotOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncOrElse(data -> !predicate.test(data), whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncNotOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncOrElse(data -> !predicate.test(data), whenContinue);
+    }
+
+    private TaskerChain<T> _abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue, boolean async) {
+        return this._abortIf(data -> {
+            if (predicate.test(data)) {
+                whenAbort.run();
+                return true;
+            }
+            whenContinue.run();
+            return false;
+        }, async);
+    }
+
+    public TaskerChain<T> abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, this.lastAsync.get());
+    }
+
+    public TaskerChain<T> abortIfSyncThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, false);
+    }
+
+    public TaskerChain<T> abortIfAsyncThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, true);
+    }
+
+    public TaskerChain<T> abortIfNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(data -> !predicate.test(data), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncThenOrElse(data -> !predicate.test(data), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncThenOrElse(data -> !predicate.test(data), whenAbort, whenContinue);
     }
 
     public TaskerChain<T> abortIf(@NonNull BooleanSupplier supplier) {
-        return this._abortIf((unused) -> supplier.getAsBoolean(), this.lastAsync.get());
+        return this._abortIf(unused -> supplier.getAsBoolean(), this.lastAsync.get());
+    }
+
+    public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier) {
+        return this._abortIf(unused -> supplier.getAsBoolean(), false);
+    }
+
+    public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier) {
+        return this._abortIf(unused -> supplier.getAsBoolean(), true);
+    }
+
+    public TaskerChain<T> abortIfNot(@NonNull BooleanSupplier supplier) {
+        return this._abortIf(unused -> !supplier.getAsBoolean(), this.lastAsync.get());
+    }
+
+    public TaskerChain<T> abortIfSyncNot(@NonNull BooleanSupplier supplier) {
+        return this._abortIf(unused -> !supplier.getAsBoolean(), false);
+    }
+
+    public TaskerChain<T> abortIfAsyncNot(@NonNull BooleanSupplier supplier) {
+        return this._abortIf(unused -> !supplier.getAsBoolean(), true);
+    }
+
+    public TaskerChain<T> abortIfThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, NOOP_RUNNABLE);
+    }
+
+    public TaskerChain<T> abortIfSyncThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfSyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, NOOP_RUNNABLE);
+    }
+
+    public TaskerChain<T> abortIfAsyncThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfAsyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, NOOP_RUNNABLE);
+    }
+
+    public TaskerChain<T> abortIfNotThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfThen(unused -> !supplier.getAsBoolean(), whenAbort);
+    }
+
+    public TaskerChain<T> abortIfSyncNotThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfSyncThen(unused -> !supplier.getAsBoolean(), whenAbort);
+    }
+
+    public TaskerChain<T> abortIfAsyncNotThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
+        return this.abortIfAsyncThen(unused -> !supplier.getAsBoolean(), whenAbort);
+    }
+
+    public TaskerChain<T> abortIfOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(unused -> supplier.getAsBoolean(), NOOP_RUNNABLE, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncThenOrElse(unused -> supplier.getAsBoolean(), NOOP_RUNNABLE, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncThenOrElse(unused -> supplier.getAsBoolean(), NOOP_RUNNABLE, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfNotOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfOrElse(unused -> !supplier.getAsBoolean(), whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncNotOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncOrElse(unused -> !supplier.getAsBoolean(), whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncNotOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncOrElse(unused -> !supplier.getAsBoolean(), whenContinue);
+    }
+
+    public TaskerChain<T> abortIfThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfNotThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfThenOrElse(unused -> !supplier.getAsBoolean(), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfSyncNotThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfSyncThenOrElse(unused -> !supplier.getAsBoolean(), whenAbort, whenContinue);
+    }
+
+    public TaskerChain<T> abortIfAsyncNotThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
+        return this.abortIfAsyncThenOrElse(unused -> !supplier.getAsBoolean(), whenAbort, whenContinue);
     }
 
     public TaskerChain<T> abortIfNull() {
