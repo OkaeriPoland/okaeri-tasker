@@ -46,7 +46,7 @@ public class TaskerChain<T> {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
-        this.tasks.add(new ChainTask(runnable, false, false));
+        this.tasks.add(new ChainTask(runnable, () -> false, false));
         return this;
     }
 
@@ -70,7 +70,7 @@ public class TaskerChain<T> {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
-        this.tasks.add(new ChainTask(runnable, true, false));
+        this.tasks.add(new ChainTask(runnable, () -> true, false));
         return this;
     }
 
@@ -91,37 +91,41 @@ public class TaskerChain<T> {
 
     // UTILITY
     @SuppressWarnings("unchecked")
-    protected TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, boolean async) {
+    protected TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, @NonNull Supplier<Boolean> async) {
+        if (this.executed.get()) {
+            throw new RuntimeException("Cannot modify already executed chain");
+        }
         Runnable runnable = () -> {
             if (predicate.test((T) this.data.get())) {
                 this.abort.set(true);
             }
         };
-        return this.lastAsync.get() ? this.async(runnable) : this.sync(runnable);
+        this.tasks.add(new ChainTask(runnable, async, false));
+        return this;
     }
 
     public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, this.lastAsync.get());
+        return this._abortIf(predicate, this.lastAsync::get);
     }
 
     public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, false);
+        return this._abortIf(predicate, () -> false);
     }
 
     public TaskerChain<T> abortIfAsync(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, true);
+        return this._abortIf(predicate, () -> true);
     }
 
     public TaskerChain<T> abortIfNot(@NonNull Predicate<T> predicate) {
-        return this._abortIf(data -> !predicate.test(data), this.lastAsync.get());
+        return this._abortIf(data -> !predicate.test(data), this.lastAsync::get);
     }
 
     public TaskerChain<T> abortIfSyncNot(@NonNull Predicate<T> predicate) {
-        return this._abortIf(data -> !predicate.test(data), false);
+        return this._abortIf(data -> !predicate.test(data), () -> false);
     }
 
     public TaskerChain<T> abortIfAsyncNot(@NonNull Predicate<T> predicate) {
-        return this._abortIf(data -> !predicate.test(data), true);
+        return this._abortIf(data -> !predicate.test(data), () -> true);
     }
 
     public TaskerChain<T> abortIfThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
@@ -172,7 +176,7 @@ public class TaskerChain<T> {
         return this.abortIfAsyncOrElse(data -> !predicate.test(data), whenContinue);
     }
 
-    private TaskerChain<T> _abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue, boolean async) {
+    private TaskerChain<T> _abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue, @NonNull Supplier<Boolean> async) {
         return this._abortIf(data -> {
             if (predicate.test(data)) {
                 whenAbort.run();
@@ -184,15 +188,15 @@ public class TaskerChain<T> {
     }
 
     public TaskerChain<T> abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, this.lastAsync.get());
+        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, this.lastAsync::get);
     }
 
     public TaskerChain<T> abortIfSyncThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, false);
+        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, () -> false);
     }
 
     public TaskerChain<T> abortIfAsyncThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, true);
+        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, () -> true);
     }
 
     public TaskerChain<T> abortIfNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
@@ -208,27 +212,27 @@ public class TaskerChain<T> {
     }
 
     public TaskerChain<T> abortIf(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> supplier.getAsBoolean(), this.lastAsync.get());
+        return this._abortIf(unused -> supplier.getAsBoolean(), this.lastAsync::get);
     }
 
     public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> supplier.getAsBoolean(), false);
+        return this._abortIf(unused -> supplier.getAsBoolean(), () -> false);
     }
 
     public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> supplier.getAsBoolean(), true);
+        return this._abortIf(unused -> supplier.getAsBoolean(), () -> true);
     }
 
     public TaskerChain<T> abortIfNot(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> !supplier.getAsBoolean(), this.lastAsync.get());
+        return this._abortIf(unused -> !supplier.getAsBoolean(), this.lastAsync::get);
     }
 
     public TaskerChain<T> abortIfSyncNot(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> !supplier.getAsBoolean(), false);
+        return this._abortIf(unused -> !supplier.getAsBoolean(), () -> false);
     }
 
     public TaskerChain<T> abortIfAsyncNot(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> !supplier.getAsBoolean(), true);
+        return this._abortIf(unused -> !supplier.getAsBoolean(), () -> true);
     }
 
     public TaskerChain<T> abortIfThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
@@ -309,7 +313,7 @@ public class TaskerChain<T> {
 
     // EXCEPTIONS
     @SuppressWarnings("unchecked")
-    protected <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, boolean async) {
+    protected <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, @NonNull Supplier<Boolean> async) {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
@@ -326,11 +330,11 @@ public class TaskerChain<T> {
     }
 
     public <E extends Exception> TaskerChain<T> handleExceptionSync(@NonNull Function<E, T> handler) {
-        return this._handleException(handler, false);
+        return this._handleException(handler, () -> false);
     }
 
     public <E extends Exception> TaskerChain<T> handleExceptionAsync(@NonNull Function<E, T> handler) {
-        return this._handleException(handler, true);
+        return this._handleException(handler, () -> true);
     }
 
     @SuppressWarnings("unchecked")
@@ -339,7 +343,7 @@ public class TaskerChain<T> {
             handler.accept((E) exception);
             this.abort.set(true);
             return null;
-        }, this.lastAsync.get());
+        }, this.lastAsync::get); // FIXME
     }
 
     public TaskerChain<T> abortIfException() {
@@ -419,8 +423,9 @@ public class TaskerChain<T> {
         }
 
         // prepare callback
+        boolean async = task.getAsync().get();
         Runnable callback = () -> {
-            this.lastAsync.set(task.isAsync());
+            this.lastAsync.set(async);
             this._executeTask(index + 1, abortCallback, unhandledExceptionConsumer);
         };
 
@@ -434,7 +439,7 @@ public class TaskerChain<T> {
         };
 
         // execute
-        this.currentTask.set(this.executor.run(runnable, callback, task.isAsync()));
+        this.currentTask.set(this.executor.run(runnable, callback, async));
     }
 
     public void execute(@NonNull Consumer<T> consumer) {
