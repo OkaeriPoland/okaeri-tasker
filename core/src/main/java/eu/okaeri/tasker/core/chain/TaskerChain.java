@@ -72,7 +72,7 @@ public class TaskerChain<T> {
     }
 
     @SuppressWarnings("unchecked")
-    public <N> TaskerChain<N> sync(@NonNull Supplier<N> supplier) {
+    public <N> TaskerChain<N> supplySync(@NonNull Supplier<N> supplier) {
         return (TaskerChain<N>) this.sync(() -> this.data.set(supplier.get()));
     }
 
@@ -83,7 +83,7 @@ public class TaskerChain<T> {
 
     @SuppressWarnings("unchecked")
     public <R> TaskerChain<R> transformSync(@NonNull Function<T, R> function) {
-        return this.sync(() -> function.apply((T) this.data.get()));
+        return this.supplySync(() -> function.apply((T) this.data.get()));
     }
 
     // ASYNC
@@ -96,7 +96,7 @@ public class TaskerChain<T> {
     }
 
     @SuppressWarnings("unchecked")
-    public <N> TaskerChain<N> async(@NonNull Supplier<N> supplier) {
+    public <N> TaskerChain<N> supplyAsync(@NonNull Supplier<N> supplier) {
         return (TaskerChain<N>) this.async(() -> this.data.set(supplier.get()));
     }
 
@@ -107,7 +107,7 @@ public class TaskerChain<T> {
 
     @SuppressWarnings("unchecked")
     public <R> TaskerChain<R> transformAsync(@NonNull Function<T, R> function) {
-        return this.async(() -> function.apply((T) this.data.get()));
+        return this.supplyAsync(() -> function.apply((T) this.data.get()));
     }
 
     // UTILITY
