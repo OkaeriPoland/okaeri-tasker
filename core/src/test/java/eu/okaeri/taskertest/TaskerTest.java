@@ -59,7 +59,7 @@ public class TaskerTest {
     @Test
     public void test_basic() {
         String result = this.pool.newChain()
-            .sync(() -> {
+            .supplySync(() -> {
                 StringBuilder builder = new StringBuilder();
                 builder.append("hello");
                 for (int i = 0; i < 5; i++) {
@@ -97,7 +97,7 @@ public class TaskerTest {
     public void test_abort_on_null_sync_async() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-            .sync(() -> null)
+            .supplySync(() -> null)
             .abortIfNull()
             .transformAsync((Object data) -> {
                 watcher.set("failed!");
@@ -112,7 +112,7 @@ public class TaskerTest {
     public void test_abort_on_null_sync_sync() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-            .sync(() -> null)
+            .supplySync(() -> null)
             .abortIfNull()
             .transformSync((Object data) -> {
                 watcher.set("failed!");
@@ -127,7 +127,7 @@ public class TaskerTest {
     public void test_abort_on_null_async_sync() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-            .async(() -> null)
+            .supplyAsync(() -> null)
             .abortIfNull()
             .transformSync((Object data) -> {
                 watcher.set("failed!");
@@ -142,7 +142,7 @@ public class TaskerTest {
     public void test_abort_on_null_async_async() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-            .async(() -> null)
+            .supplyAsync(() -> null)
             .abortIfNull()
             .transformAsync((Object data) -> {
                 watcher.set("failed!");
@@ -156,7 +156,7 @@ public class TaskerTest {
     @Test
     public void test_unhandled_exception_first() {
         assertThrows(RuntimeException.class, () -> this.pool.newChain()
-            .sync(() -> {
+            .supplySync(() -> {
                 throw new RuntimeException();
             })
             .execute());
@@ -168,7 +168,7 @@ public class TaskerTest {
             .sync(() -> {
                 boolean hmm = true;
             })
-            .sync(() -> {
+            .supplySync(() -> {
                 throw new RuntimeException();
             })
             .execute());
@@ -178,7 +178,7 @@ public class TaskerTest {
     public void test_handled_exception() {
         AtomicReference<Object> watcher = new AtomicReference<>("failed!");
         this.pool.newChain()
-            .sync(() -> {
+            .supplySync(() -> {
                 throw new RuntimeException();
             })
             .handleExceptionSync(exception -> {
@@ -193,7 +193,7 @@ public class TaskerTest {
     public void test_abort_if_exception() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         this.pool.newChain()
-            .sync(() -> {
+            .supplySync(() -> {
                 throw new RuntimeException();
             })
             .abortIfException()
