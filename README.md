@@ -57,7 +57,7 @@ Tasker tasker = BukkitTasker.newPool(pluginInstance);
 // standard access, create new chain
 this.tasker.newChain()
         // get data from service into chain stack asynchronously
-        .async(() -> this.playerPersistence.get(event.getPlayer()))
+        .supplyAsync(() -> this.playerPersistence.get(event.getPlayer()))
         // manipulate the data synchronously
         .acceptSync(playerProperties -> {
             Instant lastJoined = playerProperties.getLastJoined();
@@ -129,7 +129,7 @@ take place without doing blocking I/O in the main thread. Can also be applied in
 
 ```java
 this.tasker.newChain()
-    .async(() -> {
+    .supplyAsync(() -> {
         String contents = this.bookToString(event.getNewBookMeta());
         return new AsyncPlayerTextEvent(player, contents, "Book").call();
     })
