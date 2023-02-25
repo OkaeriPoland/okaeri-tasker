@@ -3,14 +3,14 @@ package eu.okaeri.taskertest;
 import eu.okaeri.tasker.core.Tasker;
 import eu.okaeri.tasker.core.TaskerExecutor;
 import lombok.NonNull;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,9 +37,16 @@ public class TaskerTest {
             }
 
             @Override
-            public Object run(Runnable runnable, Runnable callback, boolean async) {
+            public Object run(Runnable runnable, boolean async) {
                 runnable.run();
-                callback.run();
+                return null;
+            }
+
+            @Override
+            @SneakyThrows
+            public Object runLater(@NonNull Runnable runnable, @NonNull Duration delay, boolean async) {
+                Thread.sleep(delay.toMillis());
+                runnable.run();
                 return null;
             }
 
@@ -61,7 +68,7 @@ public class TaskerTest {
                 builder.append("world");
                 return builder.toString();
             })
-            .acceptAsync(data -> {
+            .transformAsync(data -> {
                 System.out.println(Thread.currentThread().getName());
                 System.out.println(data.length());
                 System.out.println(data);
@@ -77,10 +84,10 @@ public class TaskerTest {
         Object result = this.pool.newChain()
             .sync((Runnable) counter::getAndIncrement)
             .async((Runnable) counter::getAndIncrement)
-            .acceptSync((Consumer<Object>) (data) -> counter.getAndIncrement())
-            .acceptAsync((Consumer<Object>) (data) -> counter.getAndIncrement())
-            .acceptSync((Function<Object, Object>) (data) -> counter.getAndIncrement())
-            .acceptAsync((Function<Object, Object>) (data) -> counter.getAndIncrement())
+            .acceptSync(data -> counter.getAndIncrement())
+            .acceptAsync(data -> counter.getAndIncrement())
+            .transformSync(data -> counter.getAndIncrement())
+            .transformAsync(data -> counter.getAndIncrement())
             .await();
         assertEquals(6, counter.get());
         assertEquals(5, result);
@@ -92,7 +99,7 @@ public class TaskerTest {
         Object result = this.pool.newChain()
             .sync(() -> null)
             .abortIfNull()
-            .acceptAsync((Object data) -> {
+            .transformAsync((Object data) -> {
                 watcher.set("failed!");
                 return data;
             })
@@ -107,7 +114,7 @@ public class TaskerTest {
         Object result = this.pool.newChain()
             .sync(() -> null)
             .abortIfNull()
-            .acceptSync((Object data) -> {
+            .transformSync((Object data) -> {
                 watcher.set("failed!");
                 return data;
             })
@@ -122,7 +129,7 @@ public class TaskerTest {
         Object result = this.pool.newChain()
             .async(() -> null)
             .abortIfNull()
-            .acceptSync((Object data) -> {
+            .transformSync((Object data) -> {
                 watcher.set("failed!");
                 return data;
             })
@@ -137,7 +144,7 @@ public class TaskerTest {
         Object result = this.pool.newChain()
             .async(() -> null)
             .abortIfNull()
-            .acceptAsync((Object data) -> {
+            .transformAsync((Object data) -> {
                 watcher.set("failed!");
                 return data;
             })
@@ -193,5 +200,42 @@ public class TaskerTest {
             .sync(() -> watcher.set("failed!"))
             .execute();
         assertNull(watcher.get());
+    }
+
+    @Test
+    public void test_delay() {
+        AtomicReference<Instant> start = new AtomicReference<>();
+        AtomicReference<Instant> afterDelay = new AtomicReference<>();
+        this.pool.newChain()
+            .sync(() -> start.set(Instant.now()))
+            .delay(Duration.ofSeconds(1))
+            .sync(() -> afterDelay.set(Instant.now()))
+            .await();
+        Duration duration = Duration.between(start.get(), afterDelay.get());
+        assertTrue(duration.compareTo(Duration.ofMillis(900)) > 0, "duration is more than 900ms");
+        assertTrue(duration.compareTo(Duration.ofMillis(1100)) < 0, "duration is less than 1100ms");
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void test_unsafe_insert() {
+        String result = this.pool.newChain()
+            .<String>unsafe(accessor -> accessor.sync(() -> {
+                AtomicInteger counter = new AtomicInteger(0);
+                AtomicReference<Runnable> task = new AtomicReference<>();
+                task.set(() -> {
+                    accessor.taskInsert(() -> {
+                        String newValue = accessor.dataOr("") + "!";
+                        accessor.data(newValue);
+                    });
+                    if (counter.incrementAndGet() < 3) {
+                        task.get().run();
+                    }
+                });
+                task.get().run();
+            }))
+            .transformSync(text -> text.replace("!", "?"))
+            .await();
+        assertEquals("???", result);
     }
 }

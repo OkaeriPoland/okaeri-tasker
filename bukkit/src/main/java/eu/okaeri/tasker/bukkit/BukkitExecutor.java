@@ -42,17 +42,24 @@ public class BukkitExecutor implements TaskerExecutor<BukkitTask> {
     }
 
     @Override
-    public BukkitTask run(@NonNull Runnable runnable, @NonNull Runnable callback, boolean async) {
-        // prepare callback
-        Runnable task = () -> {
-            runnable.run();
-            callback.run();
-        };
-        // run
+    public BukkitTask run(@NonNull Runnable runnable, boolean async) {
         if (async) {
-            return Bukkit.getScheduler().runTaskAsynchronously(this.plugin, task);
+            return Bukkit.getScheduler().runTaskAsynchronously(this.plugin, runnable);
         } else {
-            return Bukkit.getScheduler().runTask(this.plugin, task);
+            return Bukkit.getScheduler().runTask(this.plugin, runnable);
+        }
+    }
+
+    @Override
+    public BukkitTask runLater(@NonNull Runnable runnable, @NonNull Duration delay, boolean async) {
+        if (delay.isZero()) {
+            return this.run(runnable, async);
+        }
+        long delayTicks = delay.toMillis() < 50 ? 1 : (delay.toMillis() / 50L);
+        if (async) {
+            return Bukkit.getScheduler().runTaskLaterAsynchronously(this.plugin, runnable, delayTicks);
+        } else {
+            return Bukkit.getScheduler().runTaskLater(this.plugin, runnable, delayTicks);
         }
     }
 

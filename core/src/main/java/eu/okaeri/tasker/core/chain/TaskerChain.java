@@ -14,12 +14,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
 public class TaskerChain<T> {
 
-    private static final Runnable NOOP_RUNNABLE = () -> {
+    protected static final Runnable NOOP_RUNNABLE = () -> {
     };
 
     protected final AtomicBoolean abort = new AtomicBoolean(false);
@@ -32,13 +33,33 @@ public class TaskerChain<T> {
     protected final AtomicReference<Exception> exception = new AtomicReference<>();
     protected final AtomicReference<Exception> trace = new AtomicReference<>();
     protected final AtomicReference<Object> currentTask = new AtomicReference<>();
+    protected final AtomicInteger currentTaskIndex = new AtomicInteger(0);
 
     protected final List<ChainTask> tasks = new ArrayList<>();
     protected final TaskerExecutor<Object> executor;
+    private final TaskerChainAccessor accessor = new TaskerChainAccessor(this);
 
     @SuppressWarnings("unchecked")
     public TaskerChain(@NonNull TaskerExecutor<?> executor) {
         this.executor = (TaskerExecutor<Object>) executor;
+    }
+
+    /**
+     * @deprecated Experimental unsafe API, may change in any version.
+     */
+    @Deprecated
+    @SuppressWarnings("unchecked")
+    public <N> TaskerChain<N> unsafe(@NonNull Consumer<TaskerChainAccessor> extension) {
+        extension.accept(this.accessor);
+        return (TaskerChain<N>) this;
+    }
+
+    /**
+     * @deprecated Experimental unsafe API, may change in any version.
+     */
+    @Deprecated
+    public <D> D unsafeGet(@NonNull Function<TaskerChainAccessor, D> extension) {
+        return extension.apply(this.accessor);
     }
 
     // SYNC
@@ -46,7 +67,7 @@ public class TaskerChain<T> {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
-        this.tasks.add(new ChainTask(runnable, () -> false, false));
+        this.tasks.add(new ChainTask(runnable, Duration.ZERO, () -> false, false));
         return this;
     }
 
@@ -61,7 +82,7 @@ public class TaskerChain<T> {
     }
 
     @SuppressWarnings("unchecked")
-    public <R> TaskerChain<R> acceptSync(@NonNull Function<T, R> function) {
+    public <R> TaskerChain<R> transformSync(@NonNull Function<T, R> function) {
         return this.sync(() -> function.apply((T) this.data.get()));
     }
 
@@ -70,7 +91,7 @@ public class TaskerChain<T> {
         if (this.executed.get()) {
             throw new RuntimeException("Cannot modify already executed chain");
         }
-        this.tasks.add(new ChainTask(runnable, () -> true, false));
+        this.tasks.add(new ChainTask(runnable, Duration.ZERO, () -> true, false));
         return this;
     }
 
@@ -85,7 +106,7 @@ public class TaskerChain<T> {
     }
 
     @SuppressWarnings("unchecked")
-    public <R> TaskerChain<R> acceptAsync(@NonNull Function<T, R> function) {
+    public <R> TaskerChain<R> transformAsync(@NonNull Function<T, R> function) {
         return this.async(() -> function.apply((T) this.data.get()));
     }
 
@@ -100,7 +121,7 @@ public class TaskerChain<T> {
                 this.abort.set(true);
             }
         };
-        this.tasks.add(new ChainTask(runnable, async, false));
+        this.tasks.add(new ChainTask(runnable, Duration.ZERO, async, false));
         return this;
     }
 
@@ -311,6 +332,15 @@ public class TaskerChain<T> {
         return this.abortIf(Objects::isNull);
     }
 
+    // DELAY
+    public TaskerChain<T> delay(@NonNull Duration duration) {
+        if (this.executed.get()) {
+            throw new RuntimeException("Cannot modify already executed chain");
+        }
+        this.tasks.add(new ChainTask(NOOP_RUNNABLE, duration, this.lastAsync::get, false));
+        return this;
+    }
+
     // EXCEPTIONS
     @SuppressWarnings("unchecked")
     protected <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, @NonNull Supplier<Boolean> async) {
@@ -325,7 +355,7 @@ public class TaskerChain<T> {
             this.data.set(handler.apply((E) exception));
             this.exception.set(null);
         };
-        this.tasks.add(new ChainTask(task, async, true));
+        this.tasks.add(new ChainTask(task, Duration.ZERO, async, true));
         return this;
     }
 
@@ -436,10 +466,12 @@ public class TaskerChain<T> {
             } catch (Exception exception) {
                 this.exception.set(exception);
             }
+            callback.run();
         };
 
         // execute
-        this.currentTask.set(this.executor.run(runnable, callback, async));
+        this.currentTaskIndex.set(index);
+        this.currentTask.set(this.executor.runLater(runnable, task.getDelay(), async));
     }
 
     public void execute(@NonNull Consumer<T> consumer) {

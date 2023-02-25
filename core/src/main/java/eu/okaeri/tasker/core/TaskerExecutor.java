@@ -16,7 +16,9 @@ public interface TaskerExecutor<T> {
         return this.schedule(runnable, rate, rate, async);
     }
 
-    T run(@NonNull Runnable runnable, @NonNull Runnable callback, boolean async);
+    T run(@NonNull Runnable runnable, boolean async);
+
+    T runLater(@NonNull Runnable runnable, @NonNull Duration delay, boolean async);
 
     void cancel(@NonNull T task);
 }
