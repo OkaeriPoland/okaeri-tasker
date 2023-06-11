@@ -23,7 +23,7 @@ public class TaskerTest {
         this.pool = Tasker.newPool(new TaskerExecutor<Object>() {
             @Override
             public boolean isMain() {
-                return true;
+                return false;
             }
 
             @Override
