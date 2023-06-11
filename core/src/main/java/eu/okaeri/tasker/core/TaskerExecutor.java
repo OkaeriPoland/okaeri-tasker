@@ -6,6 +6,10 @@ import java.time.Duration;
 
 public interface TaskerExecutor<T> {
 
+    default boolean hasMain() {
+        return true;
+    }
+
     boolean isMain();
 
     T schedule(@NonNull Runnable runnable, boolean async);
