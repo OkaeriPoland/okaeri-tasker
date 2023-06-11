@@ -494,6 +494,10 @@ public class TaskerChain<T> {
     @SuppressWarnings("BusyWait")
     public T await(long timeout, TimeUnit unit) {
 
+        if (this.executor.isMain()) {
+            throw new IllegalStateException("cannot await synchronously");
+        }
+
         Instant start = unit == null ? null : Instant.now();
         AtomicReference<T> resource = new AtomicReference<>();
         AtomicReference<Exception> exception = new AtomicReference<>();
