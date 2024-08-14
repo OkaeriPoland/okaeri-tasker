@@ -12,6 +12,7 @@
     <modules>
         <module>core</module>
         <module>bukkit</module>
+        <module>folia</module>
         <module>bungee</module>
         <module>velocity</module>
     </modules>
