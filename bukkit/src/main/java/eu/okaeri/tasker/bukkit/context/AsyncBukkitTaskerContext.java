@@ -9,7 +9,7 @@ import org.bukkit.plugin.Plugin;
 import java.time.Duration;
 
 @RequiredArgsConstructor
-public class AsyncTaskerContext implements TaskerContext {
+public class AsyncBukkitTaskerContext implements TaskerContext {
 
     protected final Plugin plugin;
 

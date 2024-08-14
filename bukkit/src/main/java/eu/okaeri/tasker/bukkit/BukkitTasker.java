@@ -1,7 +1,7 @@
 package eu.okaeri.tasker.bukkit;
 
-import eu.okaeri.tasker.bukkit.context.AsyncTaskerContext;
-import eu.okaeri.tasker.bukkit.context.SyncTaskerContext;
+import eu.okaeri.tasker.bukkit.context.AsyncBukkitTaskerContext;
+import eu.okaeri.tasker.bukkit.context.SyncBukkitTaskerContext;
 import eu.okaeri.tasker.core.Tasker;
 import eu.okaeri.tasker.core.Taskerable;
 import eu.okaeri.tasker.core.context.TaskerContext;
@@ -21,12 +21,12 @@ public class BukkitTasker extends Tasker {
     protected BukkitTasker(@NonNull Plugin plugin, @NonNull TaskerPlatform platform) {
         super(platform);
         this.plugin = plugin;
-        this.sync = new SyncTaskerContext(plugin);
-        this.async = new AsyncTaskerContext(plugin);
+        this.sync = new SyncBukkitTaskerContext(plugin);
+        this.async = new AsyncBukkitTaskerContext(plugin);
     }
 
     public static BukkitTasker newPool(@NonNull Plugin plugin) {
-        return new BukkitTasker(plugin, new BukkitPlatform(new AsyncTaskerContext(plugin)));
+        return new BukkitTasker(plugin, new BukkitPlatform(new AsyncBukkitTaskerContext(plugin)));
     }
 
     public Delayer newDelayer(@NonNull Duration duration, long checkRateTicks) {
