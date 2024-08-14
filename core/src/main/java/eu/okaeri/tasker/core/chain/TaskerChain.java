@@ -1,8 +1,15 @@
 package eu.okaeri.tasker.core.chain;
 
-import eu.okaeri.tasker.core.TaskerExecutor;
 import eu.okaeri.tasker.core.TaskerFuture;
+import eu.okaeri.tasker.core.Taskerable;
+import eu.okaeri.tasker.core.TaskerableWrapper;
+import eu.okaeri.tasker.core.context.DefaultTaskerContext;
+import eu.okaeri.tasker.core.context.TaskerContext;
+import eu.okaeri.tasker.core.context.TaskerPlatform;
+import eu.okaeri.tasker.core.role.*;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 
 import java.time.Duration;
@@ -13,405 +20,213 @@ import java.util.Objects;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
+import static eu.okaeri.tasker.core.TaskerDsl.*;
+import static eu.okaeri.tasker.core.chain.TaskerChainAccessor.DATA_EXCEPTION;
+
+@RequiredArgsConstructor
 public class TaskerChain<T> {
 
-    protected static final Runnable NOOP_RUNNABLE = () -> {
-    };
-
-    protected final AtomicBoolean abort = new AtomicBoolean(false);
-    protected final AtomicBoolean lastAsync = new AtomicBoolean(false);
-    protected final AtomicBoolean executed = new AtomicBoolean(false);
-    protected final AtomicBoolean done = new AtomicBoolean(false);
-    protected final AtomicBoolean cancelled = new AtomicBoolean(false);
-
-    protected final AtomicReference<Object> data = new AtomicReference<>();
-    protected final AtomicReference<Exception> exception = new AtomicReference<>();
-    protected final AtomicReference<Exception> trace = new AtomicReference<>();
-    protected final AtomicReference<Object> currentTask = new AtomicReference<>();
-    protected final AtomicInteger currentTaskIndex = new AtomicInteger(0);
+    protected final TaskerPlatform platform;
 
     protected final List<ChainTask> tasks = new ArrayList<>();
-    protected final TaskerExecutor<Object> executor;
-    private final TaskerChainAccessor accessor = new TaskerChainAccessor(this);
+    protected final TaskerChainAccessor accessor = new TaskerChainAccessor(this);
+    protected volatile TaskerContext lastContext;
 
-    @SuppressWarnings("unchecked")
-    public TaskerChain(@NonNull TaskerExecutor<?> executor) {
-        this.executor = (TaskerExecutor<Object>) executor;
+    protected volatile boolean abort = false;
+    protected volatile boolean executed = false;
+    protected volatile @Getter boolean done = false;
+    protected volatile @Getter boolean cancelled = false;
+
+    protected volatile Exception trace = null;
+    protected volatile Object currentTask = null;
+    protected volatile int currentTaskIndex = 0;
+
+    protected void add(@NonNull ChainTask task) {
+        if (this.executed) {
+            throw new RuntimeException("Cannot modify already executed chain");
+        }
+        this.tasks.add(task);
     }
 
-    /**
-     * @deprecated Experimental unsafe API, may change in any version.
-     */
-    @Deprecated
+    public TaskerChain<T> delay(@NonNull Duration duration) {
+        this.add(ChainTask.builder().delay(duration).build());
+        return this;
+    }
+
     @SuppressWarnings("unchecked")
-    public <N> TaskerChain<N> unsafe(@NonNull Consumer<TaskerChainAccessor> extension) {
-        extension.accept(this.accessor);
+    public <N> TaskerChain<N> nextIf(@NonNull Function<TaskerChainAccessor, Boolean> when, @NonNull Taskerable<N> taskerable) {
+        this.add(ChainTask.builder().taskerable(taskerable).condition(when).build());
         return (TaskerChain<N>) this;
     }
 
-    /**
-     * @deprecated Experimental unsafe API, may change in any version.
-     */
-    @Deprecated
-    public <D> D unsafeGet(@NonNull Function<TaskerChainAccessor, D> extension) {
-        return extension.apply(this.accessor);
+    public <N> TaskerChain<N> nextIf(@NonNull Function<TaskerChainAccessor, Boolean> when, @NonNull TaskerFunction<T, N> function) {
+        return this.nextIf(when, ((Taskerable<N>) function));
     }
 
-    // SYNC
-    public TaskerChain<T> sync(@NonNull Runnable runnable) {
-        if (this.executed.get()) {
-            throw new RuntimeException("Cannot modify already executed chain");
-        }
-        this.tasks.add(new ChainTask(runnable, Duration.ZERO, () -> false, false));
-        return this;
+    public <N> TaskerChain<N> next(@NonNull Taskerable<N> taskerable) {
+        return this.nextIf(accessor -> true, taskerable);
     }
 
-    @SuppressWarnings("unchecked")
-    public <N> TaskerChain<N> supplySync(@NonNull Supplier<N> supplier) {
-        return (TaskerChain<N>) this.sync(() -> this.data.set(supplier.get()));
+    public TaskerChain<T> next(@NonNull TaskerConsumer<T> consumer) {
+        return this.next((Taskerable<T>) consumer);
     }
 
-    @SuppressWarnings("unchecked")
-    public TaskerChain<T> acceptSync(@NonNull Consumer<T> data) {
-        return this.sync(() -> data.accept((T) this.data.get()));
+    public <N> TaskerChain<N> next(@NonNull TaskerFunction<T, N> function) {
+        return this.next((Taskerable<N>) function);
     }
 
-    @SuppressWarnings("unchecked")
-    public <R> TaskerChain<R> transformSync(@NonNull Function<T, R> function) {
-        return this.supplySync(() -> function.apply((T) this.data.get()));
+    public TaskerChain<T> next(@NonNull TaskerRunnable<T> runnable) {
+        return this.next((Taskerable<T>) runnable);
     }
 
-    // ASYNC
-    public TaskerChain<T> async(@NonNull Runnable runnable) {
-        if (this.executed.get()) {
-            throw new RuntimeException("Cannot modify already executed chain");
-        }
-        this.tasks.add(new ChainTask(runnable, Duration.ZERO, () -> true, false));
-        return this;
+    public <N> TaskerChain<N> $if(@NonNull Function<TaskerChainAccessor, Boolean> when, @NonNull Taskerable<N> taskerable) {
+        return this.nextIf(when, taskerable);
     }
 
-    @SuppressWarnings("unchecked")
-    public <N> TaskerChain<N> supplyAsync(@NonNull Supplier<N> supplier) {
-        return (TaskerChain<N>) this.async(() -> this.data.set(supplier.get()));
+    public <N> TaskerChain<N> $if(@NonNull Function<TaskerChainAccessor, Boolean> when, @NonNull TaskerFunction<T, N> function) {
+        return this.nextIf(when, function);
     }
 
-    @SuppressWarnings("unchecked")
-    public TaskerChain<T> acceptAsync(@NonNull Consumer<T> data) {
-        return this.async(() -> data.accept((T) this.data.get()));
+    public TaskerChain<T> $if(@NonNull Function<TaskerChainAccessor, Boolean> when, @NonNull TaskerRunnable<T> runnable) {
+        return this.nextIf(when, runnable);
     }
 
-    @SuppressWarnings("unchecked")
-    public <R> TaskerChain<R> transformAsync(@NonNull Function<T, R> function) {
-        return this.supplyAsync(() -> function.apply((T) this.data.get()));
+    public <N> TaskerChain<N> $(@NonNull Taskerable<N> taskerable) {
+        return this.next(taskerable);
     }
 
-    // UTILITY
-    @SuppressWarnings("unchecked")
-    protected TaskerChain<T> _abortIf(@NonNull Predicate<T> predicate, @NonNull Supplier<Boolean> async) {
-        if (this.executed.get()) {
-            throw new RuntimeException("Cannot modify already executed chain");
-        }
-        Runnable runnable = () -> {
-            if (predicate.test((T) this.data.get())) {
-                this.abort.set(true);
-            }
-        };
-        this.tasks.add(new ChainTask(runnable, Duration.ZERO, async, false));
-        return this;
+    public TaskerChain<T> $(@NonNull TaskerConsumer<T> function) {
+        return this.next(function);
     }
 
-    public TaskerChain<T> abortIf(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, this.lastAsync::get);
+    public <N> TaskerChain<N> $(@NonNull TaskerFunction<T, N> function) {
+        return this.next(function);
     }
 
-    public TaskerChain<T> abortIfSync(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, () -> false);
+    public TaskerChain<T> $(@NonNull TaskerRunnable<T> runnable) {
+        return this.next(runnable);
     }
 
-    public TaskerChain<T> abortIfAsync(@NonNull Predicate<T> predicate) {
-        return this._abortIf(predicate, () -> true);
+    public TaskerChain<T> abortIf(@NonNull TaskerPredicate<T> predicate) {
+        return this
+            .next(predicate.output("willAbort"))
+            .next(raw(accessor -> accessor.abort(accessor.data("willAbort"))));
     }
 
-    public TaskerChain<T> abortIfNot(@NonNull Predicate<T> predicate) {
-        return this._abortIf(data -> !predicate.test(data), this.lastAsync::get);
+    public <N> TaskerChain<N> abortIfThen(@NonNull TaskerPredicate<T> predicate, @NonNull Taskerable<N> taskerable) {
+        return this
+            .next(predicate.output("willAbort"))
+            .nextIf(accessor -> accessor.data("willAbort"), taskerable)
+            .next(raw(accessor -> accessor.abort(accessor.data("willAbort"))));
     }
 
-    public TaskerChain<T> abortIfSyncNot(@NonNull Predicate<T> predicate) {
-        return this._abortIf(data -> !predicate.test(data), () -> false);
+    public <N> TaskerChain<N> abortIfThen(@NonNull TaskerPredicate<T> predicate, @NonNull TaskerFunction<T, N> function) {
+        return this.abortIfThen(predicate, (Taskerable<N>) function);
     }
 
-    public TaskerChain<T> abortIfAsyncNot(@NonNull Predicate<T> predicate) {
-        return this._abortIf(data -> !predicate.test(data), () -> true);
-    }
-
-    public TaskerChain<T> abortIfThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
-        return this.abortIfThenOrElse(predicate, whenAbort, NOOP_RUNNABLE);
-    }
-
-    public TaskerChain<T> abortIfSyncThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
-        return this.abortIfSyncThenOrElse(predicate, whenAbort, NOOP_RUNNABLE);
-    }
-
-    public TaskerChain<T> abortIfAsyncThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
-        return this.abortIfAsyncThenOrElse(predicate, whenAbort, NOOP_RUNNABLE);
-    }
-
-    public TaskerChain<T> abortIfNotThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
-        return this.abortIfThen(data -> !predicate.test(data), whenAbort);
-    }
-
-    public TaskerChain<T> abortIfSyncNotThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
-        return this.abortIfSyncThen(data -> !predicate.test(data), whenAbort);
-    }
-
-    public TaskerChain<T> abortIfAsyncNotThen(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort) {
-        return this.abortIfAsyncThen(data -> !predicate.test(data), whenAbort);
-    }
-
-    public TaskerChain<T> abortIfOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
-        return this.abortIfThenOrElse(predicate, NOOP_RUNNABLE, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncThenOrElse(predicate, NOOP_RUNNABLE, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncThenOrElse(predicate, NOOP_RUNNABLE, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfNotOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
-        return this.abortIfOrElse(data -> !predicate.test(data), whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncNotOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncOrElse(data -> !predicate.test(data), whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncNotOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncOrElse(data -> !predicate.test(data), whenContinue);
-    }
-
-    private TaskerChain<T> _abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue, @NonNull Supplier<Boolean> async) {
-        return this._abortIf(data -> {
-            if (predicate.test(data)) {
-                whenAbort.run();
-                return true;
-            }
-            whenContinue.run();
-            return false;
-        }, async);
-    }
-
-    public TaskerChain<T> abortIfThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, this.lastAsync::get);
-    }
-
-    public TaskerChain<T> abortIfSyncThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, () -> false);
-    }
-
-    public TaskerChain<T> abortIfAsyncThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this._abortIfThenOrElse(predicate, whenAbort, whenContinue, () -> true);
-    }
-
-    public TaskerChain<T> abortIfNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfThenOrElse(data -> !predicate.test(data), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncThenOrElse(data -> !predicate.test(data), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncNotThenOrElse(@NonNull Predicate<T> predicate, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncThenOrElse(data -> !predicate.test(data), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIf(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> supplier.getAsBoolean(), this.lastAsync::get);
-    }
-
-    public TaskerChain<T> abortIfSync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> supplier.getAsBoolean(), () -> false);
-    }
-
-    public TaskerChain<T> abortIfAsync(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> supplier.getAsBoolean(), () -> true);
-    }
-
-    public TaskerChain<T> abortIfNot(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> !supplier.getAsBoolean(), this.lastAsync::get);
-    }
-
-    public TaskerChain<T> abortIfSyncNot(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> !supplier.getAsBoolean(), () -> false);
-    }
-
-    public TaskerChain<T> abortIfAsyncNot(@NonNull BooleanSupplier supplier) {
-        return this._abortIf(unused -> !supplier.getAsBoolean(), () -> true);
-    }
-
-    public TaskerChain<T> abortIfThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
-        return this.abortIfThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, NOOP_RUNNABLE);
-    }
-
-    public TaskerChain<T> abortIfSyncThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
-        return this.abortIfSyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, NOOP_RUNNABLE);
-    }
-
-    public TaskerChain<T> abortIfAsyncThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
-        return this.abortIfAsyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, NOOP_RUNNABLE);
-    }
-
-    public TaskerChain<T> abortIfNotThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
-        return this.abortIfThen(unused -> !supplier.getAsBoolean(), whenAbort);
-    }
-
-    public TaskerChain<T> abortIfSyncNotThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
-        return this.abortIfSyncThen(unused -> !supplier.getAsBoolean(), whenAbort);
-    }
-
-    public TaskerChain<T> abortIfAsyncNotThen(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort) {
-        return this.abortIfAsyncThen(unused -> !supplier.getAsBoolean(), whenAbort);
-    }
-
-    public TaskerChain<T> abortIfOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
-        return this.abortIfThenOrElse(unused -> supplier.getAsBoolean(), NOOP_RUNNABLE, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncThenOrElse(unused -> supplier.getAsBoolean(), NOOP_RUNNABLE, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncThenOrElse(unused -> supplier.getAsBoolean(), NOOP_RUNNABLE, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfNotOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
-        return this.abortIfOrElse(unused -> !supplier.getAsBoolean(), whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncNotOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncOrElse(unused -> !supplier.getAsBoolean(), whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncNotOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncOrElse(unused -> !supplier.getAsBoolean(), whenContinue);
-    }
-
-    public TaskerChain<T> abortIfThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncThenOrElse(unused -> supplier.getAsBoolean(), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfNotThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfThenOrElse(unused -> !supplier.getAsBoolean(), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfSyncNotThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfSyncThenOrElse(unused -> !supplier.getAsBoolean(), whenAbort, whenContinue);
-    }
-
-    public TaskerChain<T> abortIfAsyncNotThenOrElse(@NonNull BooleanSupplier supplier, @NonNull Runnable whenAbort, @NonNull Runnable whenContinue) {
-        return this.abortIfAsyncThenOrElse(unused -> !supplier.getAsBoolean(), whenAbort, whenContinue);
+    public TaskerChain<T> abortIfThen(@NonNull TaskerPredicate<T> predicate, @NonNull TaskerRunnable<T> runnable) {
+        return this.abortIfThen(predicate, (Taskerable<T>) runnable);
     }
 
     public TaskerChain<T> abortIfNull() {
-        return this.abortIf(Objects::isNull);
+        return this.abortIf(cond(Objects::isNull));
     }
 
-    // DELAY
-    public TaskerChain<T> delay(@NonNull Duration duration) {
-        if (this.executed.get()) {
-            throw new RuntimeException("Cannot modify already executed chain");
-        }
-        this.tasks.add(new ChainTask(NOOP_RUNNABLE, duration, this.lastAsync::get, false));
-        return this;
+    public <N> TaskerChain<N> abortIfNullThen(@NonNull Taskerable<N> taskerable) {
+        return this.abortIfThen(cond(Objects::isNull), taskerable);
     }
 
-    // EXCEPTIONS
-    @SuppressWarnings("unchecked")
-    protected <E extends Exception> TaskerChain<T> _handleException(@NonNull Function<E, T> handler, @NonNull Supplier<Boolean> async) {
-        if (this.executed.get()) {
-            throw new RuntimeException("Cannot modify already executed chain");
-        }
-        Runnable task = () -> {
-            Exception exception = this.exception.get();
-            if (exception == null) {
-                return;
-            }
-            this.data.set(handler.apply((E) exception));
-            this.exception.set(null);
-        };
-        this.tasks.add(new ChainTask(task, Duration.ZERO, async, true));
-        return this;
+    public <N> TaskerChain<N> abortIfNullThen(@NonNull TaskerFunction<T, N> function) {
+        return this.abortIfNullThen((Taskerable<N>) function);
     }
 
-    public <E extends Exception> TaskerChain<T> handleExceptionSync(@NonNull Function<E, T> handler) {
-        return this._handleException(handler, () -> false);
-    }
-
-    public <E extends Exception> TaskerChain<T> handleExceptionAsync(@NonNull Function<E, T> handler) {
-        return this._handleException(handler, () -> true);
-    }
-
-    @SuppressWarnings("unchecked")
-    public <E extends Exception> TaskerChain<T> abortIfException(@NonNull Consumer<E> handler) {
-        return this._handleException((exception) -> {
-            handler.accept((E) exception);
-            this.abort.set(true);
-            return null;
-        }, this.lastAsync::get); // FIXME
+    public TaskerChain<T> abortIfNullThen(@NonNull TaskerRunnable<T> runnable) {
+        return this.abortIfNullThen((Taskerable<T>) runnable);
     }
 
     public TaskerChain<T> abortIfException() {
-        return this.abortIfException(Function.identity()::apply);
+        this.add(ChainTask.builder()
+            .condition(accessor -> accessor.has(DATA_EXCEPTION))
+            .taskerable(raw(accessor -> accessor.abort(accessor.remove(DATA_EXCEPTION) != null)))
+            .exceptionHandler(true)
+            .build());
+        return this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <N> TaskerChain<N> abortIfExceptionThen(@NonNull Taskerable<N> taskerable) {
+        this.nextIf(accessor -> accessor.has(DATA_EXCEPTION), taskerable);
+        this.add(ChainTask.builder()
+            .condition(accessor -> accessor.has(DATA_EXCEPTION))
+            .taskerable(raw(accessor -> accessor.abort(accessor.remove(DATA_EXCEPTION) != null)))
+            .exceptionHandler(true)
+            .build());
+        return (TaskerChain<N>) this;
+    }
+
+    public <N> TaskerChain<N> abortIfExceptionThen(@NonNull TaskerFunction<T, N> function) {
+        return this.abortIfExceptionThen(((Taskerable<N>) function));
+    }
+
+    public TaskerChain<T> abortIfExceptionThen(@NonNull TaskerRunnable<T> runnable) {
+        return this.abortIfExceptionThen(((Taskerable<T>) runnable));
+    }
+
+    @SuppressWarnings("unchecked")
+    public <N> TaskerChain<N> handleException(@NonNull Taskerable<N> taskerable) {
+        this.add(ChainTask.builder()
+            .condition(accessor -> accessor.has(DATA_EXCEPTION))
+            .taskerable(new TaskerableWrapper<N>(taskerable) {
+                @Override
+                public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
+                    accessor.remove(DATA_EXCEPTION);
+                    super.call(accessor, callback);
+                }
+            })
+            .exceptionHandler(true)
+            .build());
+        return (TaskerChain<N>) this;
+    }
+
+    public <E extends Throwable, N> TaskerChain<N> handleException(@NonNull TaskerFunction<E, N> function) {
+        return this.handleException((Taskerable<N>) function);
     }
 
     // EXECUTION
-    @SuppressWarnings("unchecked")
     protected void _execute(Consumer<T> consumer, Consumer<Exception> unhandledExceptionConsumer) {
 
-        if (this.executed.get()) {
+        if (this.executed) {
             throw new RuntimeException("Cannot execute already executed chain");
         }
 
         // save start trace
-        this.trace.set(new RuntimeException("Chain trace point"));
+        this.trace = new RuntimeException("Chain trace point");
 
         // add callback as last
         Runnable abortCallback = () -> {
 
             // handle exception after last task
-            Exception unhandled = this.exception.get();
+            Exception unhandled = this.accessor.data(DATA_EXCEPTION);
             if (unhandled != null) {
                 if (unhandledExceptionConsumer != null) {
                     unhandledExceptionConsumer.accept(unhandled);
                 } else {
-                    Throwable throwable = this.trace.get().initCause(unhandled);
+                    Throwable throwable = this.trace.initCause(unhandled);
                     throw new RuntimeException("Unhandled chain exception", throwable);
                 }
             }
 
             // callback consumer
             if (consumer != null) {
-                consumer.accept((T) this.data.get());
+                consumer.accept(this.accessor.data());
             }
 
             // mark as done
-            this.done.set(true);
+            this.done = true;
         };
 
         // run tasks
@@ -427,7 +242,7 @@ public class TaskerChain<T> {
         }
 
         // abort!
-        if (this.abort.get()) {
+        if (this.abort) {
             abortCallback.run();
             return;
         }
@@ -436,42 +251,50 @@ public class TaskerChain<T> {
         ChainTask task = this.tasks.get(index);
 
         // check for unhandled exceptions
-        Exception unhandled = this.exception.get();
+        Exception unhandled = this.accessor.data(DATA_EXCEPTION);
         if (unhandled != null && !task.isExceptionHandler()) {
             if (unhandledExceptionConsumer != null) {
                 // pass exception to the consumer
                 unhandledExceptionConsumer.accept(unhandled);
                 // check if marked for abort
-                if (this.abort.get()) {
+                if (this.abort) {
                     abortCallback.run();
                     return;
                 }
             } else {
-                Throwable throwable = this.trace.get().initCause(unhandled);
+                Throwable throwable = this.trace.initCause(unhandled);
                 throw new RuntimeException("Unhandled chain exception", throwable);
             }
         }
 
+        // determine context
+        TaskerContext context = (task.context() instanceof DefaultTaskerContext)
+            ? this.platform.getDefaultContext() // try platform provided default
+            : task.context();
+
         // prepare callback
-        boolean async = task.getAsync().get();
         Runnable callback = () -> {
-            this.lastAsync.set(async);
+            this.lastContext = context;
             this._executeTask(index + 1, abortCallback, unhandledExceptionConsumer);
         };
 
         // create handling runnable
         Runnable runnable = () -> {
-            try {
-                task.getRunnable().run();
-            } catch (Exception exception) {
-                this.exception.set(exception);
+            if (!task.condition.apply(this.accessor)) {
+                callback.run();
+                return;
             }
-            callback.run();
+            try {
+                task.call(this.accessor, callback);
+            } catch (Throwable exception) {
+                this.accessor.data(DATA_EXCEPTION, exception);
+                callback.run();
+            }
         };
 
         // execute
-        this.currentTaskIndex.set(index);
-        this.currentTask.set(this.executor.runLater(runnable, task.getDelay(), async));
+        this.currentTaskIndex = index;
+        this.currentTask = context.runLater(task.getDelay(), runnable);
     }
 
     public void execute(@NonNull Consumer<T> consumer) {
@@ -494,10 +317,6 @@ public class TaskerChain<T> {
     @SuppressWarnings("BusyWait")
     public T await(long timeout, TimeUnit unit) {
 
-        if (this.executor.isMain()) {
-            throw new IllegalStateException("cannot await synchronously");
-        }
-
         Instant start = unit == null ? null : Instant.now();
         AtomicReference<T> resource = new AtomicReference<>();
         AtomicReference<Exception> exception = new AtomicReference<>();
@@ -505,8 +324,8 @@ public class TaskerChain<T> {
         this._execute(
             resource::set,
             (unhandledException) -> {
-                this.abort.set(true);
-                this.cancelled.set(true);
+                this.abort = true;
+                this.cancelled = true;
                 exception.set(unhandledException);
             }
         );
@@ -535,26 +354,18 @@ public class TaskerChain<T> {
 
     public boolean cancel() {
 
-        if (this.abort.get() || this.isCancelled()) {
+        if (this.abort || this.isCancelled()) {
             return false;
         }
 
-        this.abort.set(true);
-        this.cancelled.set(true);
+        this.abort = true;
+        this.cancelled = true;
 
-        Object currentTask = this.currentTask.get();
+        Object currentTask = this.currentTask;
         if (currentTask != null) {
-            this.executor.cancel(currentTask);
+            this.platform.cancel(currentTask);
         }
 
         return true;
-    }
-
-    public boolean isDone() {
-        return this.done.get();
-    }
-
-    public boolean isCancelled() {
-        return this.cancelled.get();
     }
 }

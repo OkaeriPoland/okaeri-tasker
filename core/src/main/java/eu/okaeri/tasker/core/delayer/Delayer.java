@@ -1,6 +1,7 @@
 package eu.okaeri.tasker.core.delayer;
 
-import eu.okaeri.tasker.core.TaskerExecutor;
+import eu.okaeri.tasker.core.context.TaskerContext;
+import eu.okaeri.tasker.core.context.TaskerPlatform;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -28,17 +29,16 @@ public class Delayer {
     protected final List<Runnable> actions = new ArrayList<>();
     protected final List<Runnable> forcedActions = new ArrayList<>();
 
-    protected final TaskerExecutor<Object> executor;
+    protected final TaskerPlatform platform;
     protected final Duration duration;
     protected final Duration checkRate;
 
-    public static Delayer of(@NonNull TaskerExecutor<?> executor, @NonNull Duration duration) {
-        return of(executor, duration, duration.dividedBy(10));
+    public static Delayer of(@NonNull TaskerPlatform platform, @NonNull Duration duration) {
+        return of(platform, duration, duration.dividedBy(10));
     }
 
-    @SuppressWarnings("unchecked")
-    public static Delayer of(@NonNull TaskerExecutor<?> executor, @NonNull Duration duration, @NonNull Duration checkRate) {
-        return new Delayer((TaskerExecutor<Object>) executor, duration, checkRate);
+    public static Delayer of(@NonNull TaskerPlatform platform, @NonNull Duration duration, @NonNull Duration checkRate) {
+        return new Delayer(platform, duration, checkRate);
     }
 
     public Delayer abortIf(@NonNull Supplier<Boolean> supplier) {
@@ -131,22 +131,14 @@ public class Delayer {
         return this;
     }
 
-    public Delayer executeSync() {
-        return this.execute(false);
-    }
-
-    public Delayer executeAsync() {
-        return this.execute(true);
-    }
-
-    public Delayer execute(boolean async) {
+    public Delayer execute(@NonNull TaskerContext context) {
 
         if (this.started.get() != null) {
             throw new RuntimeException("Cannot execute already executed chain");
         }
 
         this.started.set(Instant.now());
-        this.task.set(this.executor.schedule(this::run, this.checkRate, async));
+        this.task.set(context.schedule(this::run, this.checkRate));
 
         return this;
     }
@@ -209,7 +201,7 @@ public class Delayer {
         }
 
         this.abort.set(true);
-        this.executor.cancel(this.task.get());
+        this.platform.cancel(this.task.get());
         return true;
     }
 }
