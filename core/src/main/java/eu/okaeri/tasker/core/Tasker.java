@@ -2,6 +2,7 @@ package eu.okaeri.tasker.core;
 
 import eu.okaeri.tasker.core.chain.SharedChain;
 import eu.okaeri.tasker.core.chain.TaskerChain;
+import eu.okaeri.tasker.core.context.TaskerPlatform;
 import eu.okaeri.tasker.core.delayer.Delayer;
 import lombok.AccessLevel;
 import lombok.NonNull;
@@ -13,6 +14,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class Tasker {
@@ -21,22 +23,28 @@ public class Tasker {
     protected final Map<String, Queue<Runnable>> sharedChainsPriority = new ConcurrentHashMap<>();
     protected final Map<String, Object> sharedChainsTasks = new ConcurrentHashMap<>();
     protected final Map<String, AtomicBoolean> sharedChainsLocks = new ConcurrentHashMap<>();
-    protected final TaskerExecutor<?> executor;
+    protected final TaskerPlatform platform;
 
-    public static Tasker newPool(@NonNull TaskerExecutor<?> executor) {
-        return new Tasker(executor);
+    public static Tasker newPool(@NonNull TaskerPlatform platform) {
+        return new Tasker(platform);
     }
 
     public Delayer newDelayer(@NonNull Duration duration) {
-        return Delayer.of(this.executor, duration);
+        return Delayer.of(this.platform, duration);
     }
 
     public Delayer newDelayer(@NonNull Duration duration, @NonNull Duration checkRate) {
-        return Delayer.of(this.executor, duration, checkRate);
+        return Delayer.of(this.platform, duration, checkRate);
     }
 
     public TaskerChain<Object> newChain() {
-        return new TaskerChain<>(this.executor);
+        return new TaskerChain<>(this.platform);
+    }
+
+    public TaskerChain<Object> newChain(@NonNull Consumer<TaskerChain<Object>> consumer) {
+        TaskerChain<Object> chain = new TaskerChain<>(this.platform);
+        consumer.accept(chain);
+        return chain;
     }
 
     public TaskerChain<Object> newSharedChain(@NonNull String name) {
@@ -47,12 +55,12 @@ public class Tasker {
 
         // no queue, start task
         if (!this.sharedChainsTasks.containsKey(name)) {
-            Object task = this.executor.schedule(() -> this.execSharedChainQueue(name), true);
+            Object task = this.platform.getDefaultContext().schedule(() -> this.execSharedChainQueue(name));
             this.sharedChainsTasks.put(name, task);
         }
 
         // create chain with target queue
-        return new SharedChain<>(this.executor, this.getSharedChainQueue(name, priority));
+        return new SharedChain<>(this.platform, this.getSharedChainQueue(name, priority));
     }
 
     protected Queue<Runnable> getSharedChainQueue(@NonNull String name, boolean priority) {

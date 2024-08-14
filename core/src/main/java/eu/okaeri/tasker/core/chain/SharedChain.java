@@ -1,6 +1,6 @@
 package eu.okaeri.tasker.core.chain;
 
-import eu.okaeri.tasker.core.TaskerExecutor;
+import eu.okaeri.tasker.core.context.TaskerPlatform;
 import lombok.NonNull;
 
 import java.util.Queue;
@@ -12,8 +12,8 @@ public class SharedChain<T> extends TaskerChain<T> {
     protected final Queue<Runnable> queue;
     protected final AtomicBoolean executed = new AtomicBoolean(false);
 
-    public SharedChain(@NonNull TaskerExecutor<?> executor, @NonNull Queue<Runnable> queue) {
-        super(executor);
+    public SharedChain(@NonNull TaskerPlatform platform, @NonNull Queue<Runnable> queue) {
+        super(platform);
         this.queue = queue;
     }
 
