@@ -1,9 +1,6 @@
 package eu.okaeri.tasker.core.chain;
 
-import eu.okaeri.tasker.core.Tasker;
-import eu.okaeri.tasker.core.TaskerFuture;
-import eu.okaeri.tasker.core.Taskerable;
-import eu.okaeri.tasker.core.TaskerableWrapper;
+import eu.okaeri.tasker.core.*;
 import eu.okaeri.tasker.core.context.DefaultTaskerContext;
 import eu.okaeri.tasker.core.context.TaskerContext;
 import eu.okaeri.tasker.core.role.TaskerConsumer;
@@ -26,6 +23,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static eu.okaeri.tasker.core.TaskerDsl.cond;
 import static eu.okaeri.tasker.core.TaskerDsl.raw;
@@ -115,6 +113,22 @@ public class TaskerChain<T> {
         return this.next(runnable);
     }
 
+    public TaskerChain<T> accept(@NonNull Consumer<T> consumer) {
+        return this.next(TaskerDsl.accept(consumer));
+    }
+
+    public <N> TaskerChain<N> transform(@NonNull Function<T, N> function) {
+        return this.next(TaskerDsl.transform(function));
+    }
+
+    public TaskerChain<T> run(@NonNull Runnable runnable) {
+        return this.next(TaskerDsl.run(runnable));
+    }
+
+    public <N> TaskerChain<N> supply(@NonNull Supplier<N> supplier) {
+        return this.next(TaskerDsl.supply(supplier));
+    }
+
     public TaskerChain<T> abortIf(@NonNull TaskerPredicate<T> predicate) {
         return this
             .next(predicate.output("willAbort"))
@@ -126,6 +140,10 @@ public class TaskerChain<T> {
             .next(predicate.output("willAbort"))
             .nextIf(accessor -> accessor.data("willAbort"), taskerable)
             .next(raw(accessor -> accessor.abort(accessor.data("willAbort"))));
+    }
+
+    public TaskerChain<T> abortIfThen(@NonNull TaskerPredicate<T> predicate, @NonNull TaskerConsumer<T> consumer) {
+        return this.abortIfThen(predicate, (Taskerable<T>) consumer);
     }
 
     public <N> TaskerChain<N> abortIfThen(@NonNull TaskerPredicate<T> predicate, @NonNull TaskerFunction<T, N> function) {
@@ -142,6 +160,10 @@ public class TaskerChain<T> {
 
     public <N> TaskerChain<N> abortIfNullThen(@NonNull Taskerable<N> taskerable) {
         return this.abortIfThen(cond(Objects::isNull), taskerable);
+    }
+
+    public TaskerChain<T> abortIfNullThen(@NonNull TaskerConsumer<T> runnable) {
+        return this.abortIfNullThen((Taskerable<T>) runnable);
     }
 
     public <N> TaskerChain<N> abortIfNullThen(@NonNull TaskerFunction<T, N> function) {
@@ -170,6 +192,10 @@ public class TaskerChain<T> {
             .exceptionHandler(true)
             .build());
         return (TaskerChain<N>) this;
+    }
+
+    public TaskerChain<T> abortIfExceptionThen(@NonNull TaskerConsumer<T> consumer) {
+        return this.abortIfExceptionThen(((Taskerable<T>) consumer));
     }
 
     public <N> TaskerChain<N> abortIfExceptionThen(@NonNull TaskerFunction<T, N> function) {

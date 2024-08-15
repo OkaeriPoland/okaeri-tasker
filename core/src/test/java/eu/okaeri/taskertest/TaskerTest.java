@@ -12,7 +12,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static eu.okaeri.tasker.core.TaskerDsl.*;
+import static eu.okaeri.tasker.core.TaskerDsl.supply;
+import static eu.okaeri.tasker.core.TaskerDsl.transform;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TaskerTest {
@@ -27,7 +28,7 @@ public class TaskerTest {
     @Test
     public void test_basic() {
         String result = this.pool.newChain()
-            .$(supply(() -> {
+            .supply(() -> {
                 StringBuilder builder = new StringBuilder();
                 builder.append("hello");
                 for (int i = 0; i < 5; i++) {
@@ -35,18 +36,18 @@ public class TaskerTest {
                 }
                 builder.append("world");
                 return builder.toString();
-            }))
-            .$(accept(data -> {
+            })
+            .accept(data -> {
                 System.out.println(data.length());
                 System.out.println(data);
-            }))
-            .$(run(() -> {
+            })
+            .run(() -> {
                 boolean hmm = true;
-            }))
-            .$(transform(data -> {
+            })
+            .transform(data -> {
                 System.out.println(Thread.currentThread().getName());
                 return data;
-            }))
+            })
             .await();
         assertEquals("hello     world", result);
     }
@@ -55,9 +56,9 @@ public class TaskerTest {
     public void test_execution_of_all_methods() {
         List<Integer> counter = new ArrayList<>();
         boolean result = this.pool.newChain()
-            .$(run(() -> counter.add(1)))
-            .$(accept(data -> counter.add(2)))
-            .$(transform(data -> counter.add(3)))
+            .run(() -> counter.add(1))
+            .accept(data -> counter.add(2))
+            .transform(data -> counter.add(3))
             .await();
         assertEquals(Arrays.asList(1, 2, 3), counter);
         assertTrue(result);
@@ -67,9 +68,9 @@ public class TaskerTest {
     public void test_abort_on_null() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         Object result = this.pool.newChain()
-            .$(supply(() -> null))
+            .supply(() -> null)
             .abortIfNull()
-            .$(run(() -> watcher.set("failed!")))
+            .run(() -> watcher.set("failed!"))
             .await();
         assertNull(result);
         assertNull(watcher.get());
@@ -87,12 +88,12 @@ public class TaskerTest {
     @Test
     public void test_unhandled_exception_second() {
         assertThrows(RuntimeException.class, () -> this.pool.newChain()
-            .$(run(() -> {
+            .run(() -> {
                 boolean hmm = true;
-            }))
-            .$(supply(() -> {
+            })
+            .supply(() -> {
                 throw new RuntimeException();
-            }))
+            })
             .execute());
     }
 
@@ -100,9 +101,9 @@ public class TaskerTest {
     public void test_handled_exception() {
         AtomicReference<Object> watcher = new AtomicReference<>("failed!");
         this.pool.newChain()
-            .$(supply(() -> {
+            .supply(() -> {
                 throw new RuntimeException();
-            }))
+            })
             .handleException(transform(exception -> {
                 watcher.set(null);
                 return null;
@@ -115,11 +116,11 @@ public class TaskerTest {
     public void test_abort_if_exception() {
         AtomicReference<Object> watcher = new AtomicReference<>();
         this.pool.newChain()
-            .$(supply(() -> {
+            .supply(() -> {
                 throw new RuntimeException();
-            }))
+            })
             .abortIfException()
-            .$(run(() -> watcher.set("failed!")))
+            .run(() -> watcher.set("failed!"))
             .execute();
         assertNull(watcher.get());
     }
@@ -129,9 +130,9 @@ public class TaskerTest {
         AtomicReference<Instant> start = new AtomicReference<>();
         AtomicReference<Instant> afterDelay = new AtomicReference<>();
         this.pool.newChain()
-            .$(run(() -> start.set(Instant.now())))
+            .run(() -> start.set(Instant.now()))
             .delay(Duration.ofSeconds(1))
-            .$(run(() -> afterDelay.set(Instant.now())))
+            .run(() -> afterDelay.set(Instant.now()))
             .await();
         Duration duration = Duration.between(start.get(), afterDelay.get());
         assertTrue(duration.compareTo(Duration.ofMillis(900)) > 0, "duration is more than 900ms");
