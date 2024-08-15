@@ -24,6 +24,14 @@ public class TaskerDsl {
         return new DefaultTaskerPredicate<>(data -> supplier.getAsBoolean());
     }
 
+    public static <T> TaskerPredicate<T> not(@NonNull Predicate<T> predicate) {
+        return cond(predicate.negate());
+    }
+
+    public static <T> TaskerPredicate<T> not(@NonNull BooleanSupplier supplier) {
+        return not(data -> !supplier.getAsBoolean());
+    }
+
     public static <T> TaskerRunnable<T> run(@NonNull Runnable runnable) {
         return new DefaultTaskerRunnable<>(runnable);
     }

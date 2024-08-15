@@ -1,12 +1,15 @@
 package eu.okaeri.tasker.core.chain;
 
+import eu.okaeri.tasker.core.Tasker;
 import eu.okaeri.tasker.core.TaskerFuture;
 import eu.okaeri.tasker.core.Taskerable;
 import eu.okaeri.tasker.core.TaskerableWrapper;
 import eu.okaeri.tasker.core.context.DefaultTaskerContext;
 import eu.okaeri.tasker.core.context.TaskerContext;
-import eu.okaeri.tasker.core.context.TaskerPlatform;
-import eu.okaeri.tasker.core.role.*;
+import eu.okaeri.tasker.core.role.TaskerConsumer;
+import eu.okaeri.tasker.core.role.TaskerFunction;
+import eu.okaeri.tasker.core.role.TaskerPredicate;
+import eu.okaeri.tasker.core.role.TaskerRunnable;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +27,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static eu.okaeri.tasker.core.TaskerDsl.*;
+import static eu.okaeri.tasker.core.TaskerDsl.cond;
+import static eu.okaeri.tasker.core.TaskerDsl.raw;
 import static eu.okaeri.tasker.core.chain.TaskerChainAccessor.DATA_EXCEPTION;
 
 @RequiredArgsConstructor
 public class TaskerChain<T> {
 
-    protected final TaskerPlatform platform;
+    protected final Tasker tasker;
 
     protected final List<ChainTask> tasks = new ArrayList<>();
     protected final TaskerChainAccessor accessor = new TaskerChainAccessor(this);
@@ -269,7 +273,7 @@ public class TaskerChain<T> {
 
         // determine context
         TaskerContext context = (task.context() instanceof DefaultTaskerContext)
-            ? this.platform.getDefaultContext() // try platform provided default
+            ? this.tasker.getPlatform().getDefaultContext() // try platform provided default
             : task.context();
 
         // prepare callback
@@ -363,7 +367,7 @@ public class TaskerChain<T> {
 
         Object currentTask = this.currentTask;
         if (currentTask != null) {
-            this.platform.cancel(currentTask);
+            this.tasker.getPlatform().cancel(currentTask);
         }
 
         return true;
