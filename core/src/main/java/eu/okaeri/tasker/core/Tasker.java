@@ -5,6 +5,7 @@ import eu.okaeri.tasker.core.chain.TaskerChain;
 import eu.okaeri.tasker.core.context.TaskerPlatform;
 import eu.okaeri.tasker.core.delayer.Delayer;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -23,7 +24,7 @@ public class Tasker {
     protected final Map<String, Queue<Runnable>> sharedChainsPriority = new ConcurrentHashMap<>();
     protected final Map<String, Object> sharedChainsTasks = new ConcurrentHashMap<>();
     protected final Map<String, AtomicBoolean> sharedChainsLocks = new ConcurrentHashMap<>();
-    protected final TaskerPlatform platform;
+    protected final @Getter TaskerPlatform platform;
 
     public static Tasker newPool(@NonNull TaskerPlatform platform) {
         return new Tasker(platform);
@@ -38,11 +39,11 @@ public class Tasker {
     }
 
     public TaskerChain<Object> newChain() {
-        return new TaskerChain<>(this.platform);
+        return new TaskerChain<>(this);
     }
 
     public TaskerChain<Object> newChain(@NonNull Consumer<TaskerChain<Object>> consumer) {
-        TaskerChain<Object> chain = new TaskerChain<>(this.platform);
+        TaskerChain<Object> chain = new TaskerChain<>(this);
         consumer.accept(chain);
         return chain;
     }
@@ -60,7 +61,7 @@ public class Tasker {
         }
 
         // create chain with target queue
-        return new SharedChain<>(this.platform, this.getSharedChainQueue(name, priority));
+        return new SharedChain<>(this, this.getSharedChainQueue(name, priority));
     }
 
     protected Queue<Runnable> getSharedChainQueue(@NonNull String name, boolean priority) {

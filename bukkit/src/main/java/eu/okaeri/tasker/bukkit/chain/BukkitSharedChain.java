@@ -1,18 +1,18 @@
-package eu.okaeri.tasker.core.chain;
+package eu.okaeri.tasker.bukkit.chain;
 
-import eu.okaeri.tasker.core.Tasker;
+import eu.okaeri.tasker.bukkit.BukkitTasker;
 import lombok.NonNull;
 
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-public class SharedChain<T> extends TaskerChain<T> {
+public class BukkitSharedChain<T> extends BukkitTaskerChain<T> {
 
     protected final Queue<Runnable> queue;
     protected final AtomicBoolean executed = new AtomicBoolean(false);
 
-    public SharedChain(@NonNull Tasker tasker, @NonNull Queue<Runnable> queue) {
+    public BukkitSharedChain(@NonNull BukkitTasker tasker, @NonNull Queue<Runnable> queue) {
         super(tasker);
         this.queue = queue;
     }
