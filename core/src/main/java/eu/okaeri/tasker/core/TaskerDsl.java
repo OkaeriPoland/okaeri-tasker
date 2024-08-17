@@ -29,7 +29,7 @@ public class TaskerDsl {
     }
 
     public static <T> TaskerPredicate<T> not(@NonNull BooleanSupplier supplier) {
-        return not(data -> !supplier.getAsBoolean());
+        return cond(data -> !supplier.getAsBoolean());
     }
 
     public static <T> TaskerRunnable<T> run(@NonNull Runnable runnable) {
