@@ -28,19 +28,19 @@ Add dependency to the `dependencies` section:
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bukkit</artifactId>
-  <version>2.1.0-beta.3</version>
+  <version>3.0.1-beta.2</version>
 </dependency>
 <!-- for bungee (experimental async only) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bungee</artifactId>
-  <version>2.1.0-beta.3</version>
+  <version>3.0.1-beta.2</version>
 </dependency>
 <!-- for velocity (experimental async only) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-velocity</artifactId>
-  <version>2.1.0-beta.3</version>
+  <version>3.0.1-beta.2</version>
 </dependency>
 ```
 
