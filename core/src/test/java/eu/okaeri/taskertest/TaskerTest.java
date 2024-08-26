@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static eu.okaeri.tasker.core.TaskerDsl.supply;
 import static eu.okaeri.tasker.core.TaskerDsl.transform;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -67,21 +66,20 @@ public class TaskerTest {
     @Test
     public void test_abort_on_null() {
         AtomicReference<Object> watcher = new AtomicReference<>();
-        Object result = this.pool.newChain()
+        this.pool.newChain()
             .supply(() -> null)
             .abortIfNull()
             .run(() -> watcher.set("failed!"))
-            .await();
-        assertNull(result);
+            .execute();
         assertNull(watcher.get());
     }
 
     @Test
     public void test_unhandled_exception_first() {
         assertThrows(RuntimeException.class, () -> this.pool.newChain()
-            .$(supply(() -> {
+            .supply(() -> {
                 throw new RuntimeException();
-            }))
+            })
             .execute());
     }
 
