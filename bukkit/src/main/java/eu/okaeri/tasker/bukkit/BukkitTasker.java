@@ -14,6 +14,9 @@ import lombok.NonNull;
 import org.bukkit.plugin.Plugin;
 
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 @Getter
 public class BukkitTasker extends Tasker {
@@ -56,6 +59,32 @@ public class BukkitTasker extends Tasker {
 
         // create chain with target queue
         return new BukkitSharedChain<>(this, this.getSharedChainQueue(name, priority));
+    }
+
+    public <T> CompletableFuture<T> eval(@NonNull Supplier<T> supplier) {
+        return BukkitTaskerLite.eval(this.plugin, supplier);
+    }
+
+    @Override
+    public void submit(@NonNull Runnable runnable) {
+        BukkitTaskerLite.submit(this.plugin, runnable);
+    }
+
+    @Override
+    public Future<?> submitFuture(@NonNull Runnable runnable) {
+        return BukkitTaskerLite.submitFuture(this.plugin, runnable);
+    }
+
+    @Override
+    public void submitShared(@NonNull String name, boolean priority, @NonNull Runnable runnable) {
+        this.newSharedChain(name, priority)
+            .run(() -> ((CompletableFuture<?>) submitFuture(runnable)).join())
+            .execute();
+    }
+
+    @Override
+    public void submitShared(@NonNull String name, @NonNull Runnable runnable) {
+        this.submitShared(name, false, runnable);
     }
 
     @SuppressWarnings("unchecked")
