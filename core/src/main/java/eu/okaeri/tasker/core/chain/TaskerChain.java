@@ -1,6 +1,9 @@
 package eu.okaeri.tasker.core.chain;
 
-import eu.okaeri.tasker.core.*;
+import eu.okaeri.tasker.core.Tasker;
+import eu.okaeri.tasker.core.TaskerDsl;
+import eu.okaeri.tasker.core.Taskerable;
+import eu.okaeri.tasker.core.TaskerableWrapper;
 import eu.okaeri.tasker.core.context.DefaultTaskerContext;
 import eu.okaeri.tasker.core.context.TaskerContext;
 import eu.okaeri.tasker.core.role.TaskerConsumer;
@@ -13,14 +16,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -40,7 +41,7 @@ public class TaskerChain<T> {
 
     protected volatile boolean abort = false;
     protected volatile boolean executed = false;
-    protected volatile @Getter boolean done = false;
+    protected volatile @Getter boolean finished = false;
     protected volatile @Getter boolean cancelled = false;
 
     protected volatile Exception trace = null;
@@ -256,7 +257,7 @@ public class TaskerChain<T> {
             }
 
             // mark as done
-            this.done = true;
+            this.finished = true;
         };
 
         // run tasks
@@ -336,50 +337,32 @@ public class TaskerChain<T> {
     }
 
     public Future<T> executeFuture() {
-        return new TaskerFuture<>(this);
-    }
-
-    public T await() {
-        return this.await(-1, null);
+        CompletableFuture<T> future = new CompletableFuture<>();
+        this.execute(data -> {
+            if (this.cancelled) {
+                future.completeExceptionally(new RuntimeException("Chain execution was cancelled"));
+            } else if (this.abort) {
+                Throwable throwable = accessor.data(DATA_EXCEPTION);
+                if (throwable == null) {
+                    future.completeExceptionally(new RuntimeException("Chain execution was aborted"));
+                } else {
+                    future.completeExceptionally(throwable);
+                }
+            } else {
+                future.complete(data);
+            }
+        });
+        return future;
     }
 
     @SneakyThrows
-    @SuppressWarnings("BusyWait")
+    public T await() {
+        return executeFuture().get();
+    }
+
+    @SneakyThrows
     public T await(long timeout, TimeUnit unit) {
-
-        Instant start = unit == null ? null : Instant.now();
-        AtomicReference<T> resource = new AtomicReference<>();
-        AtomicReference<Exception> exception = new AtomicReference<>();
-
-        this._execute(
-            resource::set,
-            (unhandledException) -> {
-                this.abort = true;
-                this.cancelled = true;
-                exception.set(unhandledException);
-            }
-        );
-
-        while (!this.isDone()) {
-            if (this.isCancelled()) {
-                throw new TimeoutException("Task was cancelled");
-            }
-            if (unit != null) {
-                Duration waitDuration = Duration.between(start, Instant.now());
-                if (waitDuration.toNanos() >= unit.toNanos(timeout)) {
-                    this.cancel();
-                    throw new TimeoutException("No result after " + waitDuration);
-                }
-            }
-            Thread.sleep(1L);
-        }
-
-        Exception unhandledException = exception.get();
-        if (unhandledException != null) {
-            throw unhandledException;
-        }
-
-        return resource.get();
+        return executeFuture().get(timeout, unit);
     }
 
     public boolean cancel() {
