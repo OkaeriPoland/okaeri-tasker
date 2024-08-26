@@ -24,22 +24,28 @@ Add repository to the `repositories` section:
 Add dependency to the `dependencies` section:
 
 ```xml
-<!-- for bukkit (sync & async) -->
+<!-- for bukkit (default async, sync) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bukkit</artifactId>
   <version>3.0.1-beta.2</version>
 </dependency>
-<!-- for bungee (experimental async only) -->
+<!-- for velocity (default async) -->
+<dependency>
+  <groupId>eu.okaeri</groupId>
+  <artifactId>okaeri-tasker-velocity</artifactId>
+  <version>3.0.1-beta.2</version>
+</dependency>
+<!-- for bungee (default async) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bungee</artifactId>
   <version>3.0.1-beta.2</version>
 </dependency>
-<!-- for velocity (experimental async only) -->
+<!-- for folia and paper 1.20+ (default async, entity, global, location) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
-  <artifactId>okaeri-tasker-velocity</artifactId>
+  <artifactId>okaeri-tasker-folia</artifactId>
   <version>3.0.1-beta.2</version>
 </dependency>
 ```
@@ -56,7 +62,7 @@ Tasker tasker = BukkitTasker.newPool(pluginInstance);
 // standard access, create new chain
 this.tasker.newChain()
         // get data from service into chain stack asynchronously
-        .supplyAsync(() -> this.playerPersistence.get(event.getPlayer()))
+        .supply(() -> this.playerPersistence.get(event.getPlayer()))
         // manipulate the data synchronously
         .acceptSync(playerProperties -> {
             Instant lastJoined = playerProperties.getLastJoined();
@@ -67,9 +73,7 @@ this.tasker.newChain()
         // asynchronously save the data - you may notice
         // that previous method does not need to return value
         // because stack data persists between chain parts
-        .acceptAsync(playerProperties -> {
-            playerProperties.save();
-        })
+        .accept(playerProperties::save)
         .execute();
 ```
 
@@ -78,6 +82,29 @@ this.tasker.newChain()
 Various snippets directly from the internal okaeri codebase. May and will include 
 code interacting with other libraries like [okaeri-i18n](okaeri-i18n) or references
 to other internal code. All of these were built with [okaeri-platform](https://github.com/OkaeriPoland/okaeri-platform).
+
+### Async book processing
+
+Allows book filtering in `PlayerEditBookEvent` using [OK! AI.Censor](https://www.okaeri.eu/services/aicensor) to
+take place without doing blocking I/O in the main thread. Can also be applied in similar fashion to sign editing.
+
+```java
+import static eu.okaeri.tasker.core.TaskerDsl.*;
+
+this.tasker.newChain()
+    .supply(() -> {
+        String contents = this.bookToString(event.getNewBookMeta());
+        return new AsyncPlayerTextEvent(player, contents, "Book").call();
+    })
+    .abortIf(not(AsyncPlayerTextEvent::isCancelled))
+    .runSync(() -> {
+        BookMeta bookMeta = (BookMeta) book.getItemMeta();
+        bookMeta.setPages(event.getPreviousBookMeta().getPages());
+        book.setItemMeta(bookMeta);
+        book.setType(Material.WRITABLE_BOOK);
+    })
+    .execute();
+```
 
 ### Delayed teleport
 
@@ -98,7 +125,7 @@ this.tasker.newDelayer(teleportDuration, Duration.ofSeconds(1))
         this.module.teleportToSpawn(player, true);
         this.i18n.get(this.messages.getTeleportationSuccess()).sendTo(player);
     })
-    .executeAsync();
+    .execute(this.tasker.async());
 ```
 
 ### Detecting hook landing
@@ -118,26 +145,5 @@ this.tasker.newDelayer(Duration.ofSeconds(10))
             .target(BukkitMessageTarget.ACTION_BAR)
             .sendTo(player);
     })
-    .executeSync();
-```
-
-### Async book processing
-
-Allows book filtering in `PlayerEditBookEvent` using [OK! AI.Censor](https://www.okaeri.eu/services/aicensor) to 
-take place without doing blocking I/O in the main thread. Can also be applied in similar fashion to sign editing.
-
-```java
-this.tasker.newChain()
-    .supplyAsync(() -> {
-        String contents = this.bookToString(event.getNewBookMeta());
-        return new AsyncPlayerTextEvent(player, contents, "Book").call();
-    })
-    .abortIfNot(AsyncPlayerTextEvent::isCancelled)
-    .sync(() -> {
-        BookMeta bookMeta = (BookMeta) book.getItemMeta();
-        bookMeta.setPages(event.getPreviousBookMeta().getPages());
-        book.setItemMeta(bookMeta);
-        book.setType(Material.WRITABLE_BOOK);
-    })
-    .execute();
+    .execute(this.tasker.sync());
 ```
