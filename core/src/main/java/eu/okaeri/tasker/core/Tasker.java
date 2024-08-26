@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Queue;
@@ -19,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
-public class Tasker {
+public class Tasker implements Closeable {
 
     protected final Map<String, Queue<Runnable>> sharedChains = new ConcurrentHashMap<>();
     protected final Map<String, Queue<Runnable>> sharedChainsPriority = new ConcurrentHashMap<>();
@@ -62,7 +64,7 @@ public class Tasker {
         }
 
         // create chain with target queue
-        return new SharedChain<>(this, this.getSharedChainQueue(name, priority));
+        return new SharedChain<>(this.newChain(), this.getSharedChainQueue(name, priority));
     }
 
     public void submit(@NonNull Runnable runnable) {
@@ -125,5 +127,10 @@ public class Tasker {
         finally {
             lock.set(false);
         }
+    }
+
+    @Override
+    public void close() throws IOException {
+        this.sharedChainsTasks.values().forEach(this.platform::cancel);
     }
 }

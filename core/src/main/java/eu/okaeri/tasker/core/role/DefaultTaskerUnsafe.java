@@ -18,10 +18,7 @@ public class DefaultTaskerUnsafe extends DefaultTaskerConsumer<TaskerChainAccess
     }
 
     @Override
-    public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-        this.context().run(() -> {
-            super.consumer.accept(accessor);
-            callback.run();
-        });
+    public Runnable call(@NonNull TaskerChainAccessor accessor) {
+        return () -> super.consumer.accept(accessor);
     }
 }

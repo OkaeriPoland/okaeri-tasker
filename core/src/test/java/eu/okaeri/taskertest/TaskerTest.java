@@ -2,6 +2,8 @@ package eu.okaeri.taskertest;
 
 import eu.okaeri.tasker.core.Tasker;
 import eu.okaeri.tasker.core.context.DefaultTaskerPlatform;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -10,6 +12,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static eu.okaeri.tasker.core.TaskerDsl.transform;
@@ -22,6 +26,12 @@ public class TaskerTest {
     @BeforeEach
     public void createPool() {
         this.pool = Tasker.newPool(new DefaultTaskerPlatform());
+    }
+
+    @AfterEach
+    @SneakyThrows
+    public void closePool() {
+        this.pool.close();
     }
 
     @Test
@@ -76,23 +86,23 @@ public class TaskerTest {
 
     @Test
     public void test_unhandled_exception_first() {
-        assertThrows(RuntimeException.class, () -> this.pool.newChain()
+        assertThrows(ExecutionException.class, () -> this.pool.newChain()
             .supply(() -> {
                 throw new RuntimeException();
             })
-            .execute());
+            .await());
     }
 
     @Test
     public void test_unhandled_exception_second() {
-        assertThrows(RuntimeException.class, () -> this.pool.newChain()
+        assertThrows(ExecutionException.class, () -> this.pool.newChain()
             .run(() -> {
                 boolean hmm = true;
             })
             .supply(() -> {
                 throw new RuntimeException();
             })
-            .execute());
+            .await());
     }
 
     @Test
@@ -106,7 +116,7 @@ public class TaskerTest {
                 watcher.set(null);
                 return null;
             }))
-            .execute();
+            .await();
         assertNull(watcher.get());
     }
 
@@ -135,6 +145,26 @@ public class TaskerTest {
         Duration duration = Duration.between(start.get(), afterDelay.get());
         assertTrue(duration.compareTo(Duration.ofMillis(900)) > 0, "duration is more than 900ms");
         assertTrue(duration.compareTo(Duration.ofMillis(1100)) < 0, "duration is less than 1100ms");
+    }
+
+    @Test
+    public void test_future() {
+        Integer value = this.pool.newChain()
+            .supply(() -> 1)
+            .await();
+        assertEquals(1, value);
+    }
+
+    @Test
+    public void test_shared() {
+        AtomicInteger counter = new AtomicInteger();
+        this.pool.newSharedChain("test")
+            .run(counter::incrementAndGet)
+            .await();
+        this.pool.newSharedChain("test")
+            .run(counter::incrementAndGet)
+            .await();
+        assertEquals(2, counter.get());
     }
 
 //    @Test

@@ -25,10 +25,7 @@ public class DefaultTaskerConsumer<T> implements TaskerConsumer<T> {
     }
 
     @Override
-    public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-        this.context().run(() -> {
-            this.accept(accessor.data(this.input));
-            callback.run();
-        });
+    public Runnable call(@NonNull TaskerChainAccessor accessor) {
+        return () -> this.accept(accessor.data(this.input));
     }
 }

@@ -25,12 +25,11 @@ public class DefaultTaskerPredicate<T> implements TaskerPredicate<T> {
     }
 
     @Override
-    public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-        this.context().run(() -> {
+    public Runnable call(@NonNull TaskerChainAccessor accessor) {
+        return () -> {
             T oldData = accessor.data(this.input);
             boolean newData = this.predicate.test(oldData);
             accessor.data(this.output, newData);
-            callback.run();
-        });
+        };
     }
 }

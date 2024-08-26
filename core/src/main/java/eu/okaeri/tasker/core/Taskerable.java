@@ -17,5 +17,5 @@ public interface Taskerable<T> {
     Taskerable<T> output(@NonNull String key);
     String output();
 
-    void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback);
+    Runnable call(@NonNull TaskerChainAccessor accessor);
 }

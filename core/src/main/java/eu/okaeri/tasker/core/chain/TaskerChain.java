@@ -3,7 +3,6 @@ package eu.okaeri.tasker.core.chain;
 import eu.okaeri.tasker.core.Tasker;
 import eu.okaeri.tasker.core.TaskerDsl;
 import eu.okaeri.tasker.core.Taskerable;
-import eu.okaeri.tasker.core.TaskerableWrapper;
 import eu.okaeri.tasker.core.context.DefaultTaskerContext;
 import eu.okaeri.tasker.core.context.TaskerContext;
 import eu.okaeri.tasker.core.role.TaskerConsumer;
@@ -33,7 +32,7 @@ import static eu.okaeri.tasker.core.chain.TaskerChainAccessor.DATA_EXCEPTION;
 @RequiredArgsConstructor
 public class TaskerChain<T> {
 
-    protected final Tasker tasker;
+    protected final @Getter Tasker tasker;
 
     protected final List<ChainTask> tasks = new ArrayList<>();
     protected final TaskerChainAccessor accessor = new TaskerChainAccessor(this);
@@ -211,13 +210,10 @@ public class TaskerChain<T> {
     public <N> TaskerChain<N> handleException(@NonNull Taskerable<N> taskerable) {
         this.add(ChainTask.builder()
             .condition(accessor -> accessor.has(DATA_EXCEPTION))
-            .taskerable(new TaskerableWrapper<N>(taskerable) {
-                @Override
-                public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-                    accessor.remove(DATA_EXCEPTION);
-                    super.call(accessor, callback);
-                }
-            })
+            .taskerable(TaskerDsl.run(() -> {
+                this.accessor.remove(DATA_EXCEPTION);
+                taskerable.call(this.accessor).run();
+            }))
             .exceptionHandler(true)
             .build());
         return (TaskerChain<N>) this;
@@ -316,9 +312,10 @@ public class TaskerChain<T> {
                 return;
             }
             try {
-                task.call(this.accessor, callback);
+                task.call(this.accessor).run();
             } catch (Throwable exception) {
                 this.accessor.data(DATA_EXCEPTION, exception);
+            } finally {
                 callback.run();
             }
         };
@@ -351,18 +348,18 @@ public class TaskerChain<T> {
             } else {
                 future.complete(data);
             }
-        }, null);
+        }, future::completeExceptionally);
         return future;
     }
 
     @SneakyThrows
     public T await() {
-        return executeFuture().get();
+        return this.executeFuture().get();
     }
 
     @SneakyThrows
     public T await(long timeout, TimeUnit unit) {
-        return executeFuture().get(timeout, unit);
+        return this.executeFuture().get(timeout, unit);
     }
 
     public boolean cancel() {
