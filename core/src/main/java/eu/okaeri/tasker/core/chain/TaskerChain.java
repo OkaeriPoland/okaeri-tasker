@@ -338,7 +338,7 @@ public class TaskerChain<T> {
 
     public Future<T> executeFuture() {
         CompletableFuture<T> future = new CompletableFuture<>();
-        this.execute(data -> {
+        this._execute(data -> {
             if (this.cancelled) {
                 future.completeExceptionally(new RuntimeException("Chain execution was cancelled"));
             } else if (this.abort) {
@@ -351,7 +351,7 @@ public class TaskerChain<T> {
             } else {
                 future.complete(data);
             }
-        });
+        }, null);
         return future;
     }
 
