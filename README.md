@@ -57,7 +57,8 @@ example [here](https://github.com/OkaeriPoland/okaeri-platform/blob/master/bukki
 
 ```java
 // create instance, preferably one per plugin
-Tasker tasker = BukkitTasker.newPool(pluginInstance);
+// BukkitTasker type is required to access .xSync methods
+BukkitTasker tasker = BukkitTasker.newPool(pluginInstance);
 
 // standard access, create new chain
 this.tasker.newChain()
