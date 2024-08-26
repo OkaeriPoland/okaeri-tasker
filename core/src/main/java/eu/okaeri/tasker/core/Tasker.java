@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -62,6 +63,24 @@ public class Tasker {
 
         // create chain with target queue
         return new SharedChain<>(this, this.getSharedChainQueue(name, priority));
+    }
+
+    public void submit(@NonNull Runnable runnable) {
+        newChain().run(runnable).execute();
+    }
+
+    public Future<?> submitFuture(@NonNull Runnable runnable) {
+        return newChain().run(runnable).executeFuture();
+    }
+
+    public void submitShared(@NonNull String name, boolean priority, @NonNull Runnable runnable) {
+        this.newSharedChain(name, priority)
+            .run(runnable)
+            .execute();
+    }
+
+    public void submitShared(@NonNull String name, @NonNull Runnable runnable) {
+        this.submitShared(name, false, runnable);
     }
 
     protected Queue<Runnable> getSharedChainQueue(@NonNull String name, boolean priority) {
