@@ -25,10 +25,7 @@ public class DefaultTaskerBooleanSupplier implements TaskerBooleanSupplier {
     }
 
     @Override
-    public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-        this.context().run(() -> {
-            accessor.data(this.output, this.getAsBoolean());
-            callback.run();
-        });
+    public Runnable call(@NonNull TaskerChainAccessor accessor) {
+        return () -> accessor.data(this.output, this.getAsBoolean());
     }
 }

@@ -24,10 +24,7 @@ public class DefaultTaskerRunnable<T> implements TaskerRunnable<T> {
     }
 
     @Override
-    public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-        this.context().run(() -> {
-            this.run();
-            callback.run();
-        });
+    public Runnable call(@NonNull TaskerChainAccessor accessor) {
+        return this;
     }
 }

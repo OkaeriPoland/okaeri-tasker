@@ -25,12 +25,11 @@ public class DefaultTaskerFunction<T, R> implements TaskerFunction<T, R> {
     }
 
     @Override
-    public void call(@NonNull TaskerChainAccessor accessor, @NonNull Runnable callback) {
-        this.context().run(() -> {
+    public Runnable call(@NonNull TaskerChainAccessor accessor) {
+        return () -> {
             T oldData = accessor.data(this.input);
             R newData = this.apply(oldData);
             accessor.data(this.output, newData);
-            callback.run();
-        });
+        };
     }
 }
