@@ -5,10 +5,7 @@ import eu.okaeri.tasker.core.TaskerDsl;
 import eu.okaeri.tasker.core.Taskerable;
 import eu.okaeri.tasker.core.chain.TaskerChain;
 import eu.okaeri.tasker.core.chain.TaskerChainAccessor;
-import eu.okaeri.tasker.core.role.TaskerConsumer;
-import eu.okaeri.tasker.core.role.TaskerFunction;
-import eu.okaeri.tasker.core.role.TaskerPredicate;
-import eu.okaeri.tasker.core.role.TaskerRunnable;
+import eu.okaeri.tasker.core.role.*;
 import lombok.NonNull;
 
 import java.time.Duration;
@@ -207,8 +204,13 @@ public class BukkitTaskerChain<T> extends TaskerChain<T> {
     }
 
     @Override
-    public BukkitTaskerChain<T> abortIfExceptionThen(@NonNull Taskerable<Throwable> taskerable) {
-        return (BukkitTaskerChain<T>) super.abortIfExceptionThen(taskerable);
+    public BukkitTaskerChain<T> abortIfExceptionThen(@NonNull TaskerConsumer<Throwable> consumer) {
+        return (BukkitTaskerChain<T>) super.abortIfExceptionThen(consumer);
+    }
+
+    @Override
+    public BukkitTaskerChain<T> abortIfExceptionThen(@NonNull TaskerBiConsumer<Throwable, T> consumer) {
+        return (BukkitTaskerChain<T>) super.abortIfExceptionThen(consumer);
     }
 
     @Override
