@@ -18,9 +18,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -183,27 +181,16 @@ public class TaskerChain<T> {
         return this;
     }
 
-    @SuppressWarnings("unchecked")
-    public <N> TaskerChain<N> abortIfExceptionThen(@NonNull Taskerable<N> taskerable) {
-        this.nextIf(accessor -> accessor.has(DATA_EXCEPTION), taskerable);
+    public TaskerChain<T> abortIfExceptionThen(@NonNull Taskerable<Throwable> taskerable) {
         this.add(ChainTask.builder()
             .condition(accessor -> accessor.has(DATA_EXCEPTION))
-            .taskerable(raw(accessor -> accessor.abort(accessor.remove(DATA_EXCEPTION) != null)))
+            .taskerable(TaskerDsl.raw(accessor -> {
+                taskerable.input(DATA_EXCEPTION).call(accessor).run();
+                accessor.abort(accessor.remove(DATA_EXCEPTION) != null);
+            }))
             .exceptionHandler(true)
             .build());
-        return (TaskerChain<N>) this;
-    }
-
-    public TaskerChain<T> abortIfExceptionThen(@NonNull TaskerConsumer<T> consumer) {
-        return this.abortIfExceptionThen(((Taskerable<T>) consumer));
-    }
-
-    public <N> TaskerChain<N> abortIfExceptionThen(@NonNull TaskerFunction<T, N> function) {
-        return this.abortIfExceptionThen(((Taskerable<N>) function));
-    }
-
-    public TaskerChain<T> abortIfExceptionThen(@NonNull TaskerRunnable<T> runnable) {
-        return this.abortIfExceptionThen(((Taskerable<T>) runnable));
+        return this;
     }
 
     @SuppressWarnings("unchecked")
@@ -333,7 +320,7 @@ public class TaskerChain<T> {
         this._execute(null, null);
     }
 
-    public Future<T> executeFuture() {
+    public CompletableFuture<T> executeFuture() {
         CompletableFuture<T> future = new CompletableFuture<>();
         this._execute(data -> {
             if (this.cancelled) {
@@ -352,14 +339,26 @@ public class TaskerChain<T> {
         return future;
     }
 
-    @SneakyThrows
-    public T await() {
+    public T await() throws ExecutionException, InterruptedException {
         return this.executeFuture().get();
     }
 
-    @SneakyThrows
-    public T await(long timeout, TimeUnit unit) {
+    public T await(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
         return this.executeFuture().get(timeout, unit);
+    }
+
+    @SneakyThrows
+    public T join() {
+        try {
+            return this.executeFuture().join();
+        }
+        catch (CompletionException | CancellationException exception) {
+            if (this.abort && !this.accessor.has(DATA_EXCEPTION)) {
+                // handled
+                return null;
+            }
+            throw exception;
+        }
     }
 
     public boolean cancel() {

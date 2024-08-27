@@ -1,13 +1,10 @@
 package eu.okaeri.tasker.core.chain;
 
 import lombok.NonNull;
-import lombok.SneakyThrows;
 import lombok.experimental.Delegate;
 
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 public class SharedChain<T> extends TaskerChain<T> {
@@ -20,8 +17,9 @@ public class SharedChain<T> extends TaskerChain<T> {
         void execute(@NonNull Consumer<T> consumer);
         void execute();
         Future<T> executeFuture();
-        T await();
-        T await(long timeout, TimeUnit unit);
+        T await() throws ExecutionException, InterruptedException;
+        T await(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException;
+        void join();
     }
 
     public SharedChain(@NonNull TaskerChain<T> delegate, @NonNull Queue<Runnable> queue) {
@@ -40,30 +38,33 @@ public class SharedChain<T> extends TaskerChain<T> {
 
     @Override
     public void execute(@NonNull Consumer<T> consumer) {
-        this.queueWith(() -> consumer.accept(this.delegate.await()));
+        this.queueWith(() -> consumer.accept(this.delegate.join()));
     }
 
     @Override
     public void execute() {
-        this.queueWith(this.delegate::await);
+        this.queueWith(this.delegate::join);
     }
 
     @Override
-    public Future<T> executeFuture() {
+    public CompletableFuture<T> executeFuture() {
         CompletableFuture<T> future = new CompletableFuture<>();
-        this.queueWith(() -> future.complete(this.delegate.await()));
+        this.queueWith(() -> future.complete(this.delegate.join()));
         return future;
     }
 
     @Override
-    @SneakyThrows
-    public T await() {
+    public T await() throws ExecutionException, InterruptedException {
         return this.executeFuture().get();
     }
 
     @Override
-    @SneakyThrows
-    public T await(long timeout, TimeUnit unit) {
+    public T await(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
         return this.executeFuture().get(timeout, unit);
+    }
+
+    @Override
+    public T join() {
+        return this.executeFuture().join();
     }
 }
