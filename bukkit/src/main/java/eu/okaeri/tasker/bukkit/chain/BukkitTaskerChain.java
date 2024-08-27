@@ -207,23 +207,8 @@ public class BukkitTaskerChain<T> extends TaskerChain<T> {
     }
 
     @Override
-    public <N> BukkitTaskerChain<N> abortIfExceptionThen(@NonNull Taskerable<N> taskerable) {
-        return (BukkitTaskerChain<N>) super.abortIfExceptionThen(taskerable);
-    }
-
-    @Override
-    public BukkitTaskerChain<T> abortIfExceptionThen(@NonNull TaskerConsumer<T> consumer) {
-        return (BukkitTaskerChain<T>) super.abortIfExceptionThen(consumer);
-    }
-
-    @Override
-    public <N> BukkitTaskerChain<N> abortIfExceptionThen(@NonNull TaskerFunction<T, N> function) {
-        return (BukkitTaskerChain<N>) super.abortIfExceptionThen(function);
-    }
-
-    @Override
-    public BukkitTaskerChain<T> abortIfExceptionThen(@NonNull TaskerRunnable<T> runnable) {
-        return (BukkitTaskerChain<T>) super.abortIfExceptionThen(runnable);
+    public BukkitTaskerChain<T> abortIfExceptionThen(@NonNull Taskerable<Throwable> taskerable) {
+        return (BukkitTaskerChain<T>) super.abortIfExceptionThen(taskerable);
     }
 
     @Override

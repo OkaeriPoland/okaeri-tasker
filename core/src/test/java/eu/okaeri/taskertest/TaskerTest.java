@@ -12,10 +12,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static eu.okaeri.tasker.core.TaskerDsl.accept;
 import static eu.okaeri.tasker.core.TaskerDsl.transform;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -57,7 +59,7 @@ public class TaskerTest {
                 System.out.println(Thread.currentThread().getName());
                 return data;
             })
-            .await();
+            .join();
         assertEquals("hello     world", result);
     }
 
@@ -68,7 +70,7 @@ public class TaskerTest {
             .run(() -> counter.add(1))
             .accept(data -> counter.add(2))
             .transform(data -> counter.add(3))
-            .await();
+            .join();
         assertEquals(Arrays.asList(1, 2, 3), counter);
         assertTrue(result);
     }
@@ -80,17 +82,17 @@ public class TaskerTest {
             .supply(() -> null)
             .abortIfNull()
             .run(() -> watcher.set("failed!"))
-            .execute();
+            .join();
         assertNull(watcher.get());
     }
 
     @Test
     public void test_unhandled_exception_first() {
-        assertThrows(ExecutionException.class, () -> this.pool.newChain()
+        assertThrows(CompletionException.class, () -> this.pool.newChain()
             .supply(() -> {
                 throw new RuntimeException();
             })
-            .await());
+            .join());
     }
 
     @Test
@@ -116,7 +118,7 @@ public class TaskerTest {
                 watcher.set(null);
                 return null;
             }))
-            .await();
+            .join();
         assertNull(watcher.get());
     }
 
@@ -125,12 +127,28 @@ public class TaskerTest {
         AtomicReference<Object> watcher = new AtomicReference<>();
         this.pool.newChain()
             .supply(() -> {
-                throw new RuntimeException();
+                throw new RuntimeException("this should be handled");
             })
             .abortIfException()
             .run(() -> watcher.set("failed!"))
-            .execute();
+            .join();
         assertNull(watcher.get());
+    }
+
+    @Test
+    public void test_abort_if_exception_then() {
+        AtomicReference<Object> watcher = new AtomicReference<>();
+        AtomicReference<Throwable> exception = new AtomicReference<>();
+        this.pool.newChain()
+            .supply(() -> {
+                throw new RuntimeException("this should be handled");
+            })
+            .abortIfExceptionThen(accept(exception::set))
+            .run(() -> watcher.set("failed!"))
+            .join();
+        assertNull(watcher.get());
+        assertNotNull(exception.get());
+        assertEquals(RuntimeException.class, exception.get().getClass());
     }
 
     @Test
@@ -141,7 +159,7 @@ public class TaskerTest {
             .run(() -> start.set(Instant.now()))
             .delay(Duration.ofSeconds(1))
             .run(() -> afterDelay.set(Instant.now()))
-            .await();
+            .join();
         Duration duration = Duration.between(start.get(), afterDelay.get());
         assertTrue(duration.compareTo(Duration.ofMillis(900)) > 0, "duration is more than 900ms");
         assertTrue(duration.compareTo(Duration.ofMillis(1100)) < 0, "duration is less than 1100ms");
@@ -151,7 +169,7 @@ public class TaskerTest {
     public void test_future() {
         Integer value = this.pool.newChain()
             .supply(() -> 1)
-            .await();
+            .join();
         assertEquals(1, value);
     }
 
@@ -160,10 +178,10 @@ public class TaskerTest {
         AtomicInteger counter = new AtomicInteger();
         this.pool.newSharedChain("test")
             .run(counter::incrementAndGet)
-            .await();
+            .join();
         this.pool.newSharedChain("test")
             .run(counter::incrementAndGet)
-            .await();
+            .join();
         assertEquals(2, counter.get());
     }
 
