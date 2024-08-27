@@ -60,8 +60,9 @@ example [here](https://github.com/OkaeriPoland/okaeri-platform/blob/master/bukki
 // BukkitTasker type is required to access .xSync methods
 BukkitTasker tasker = BukkitTasker.newPool(pluginInstance);
 
-// standard access, create new chain
-this.tasker.newChain()
+public void handleEvent(SomePlayerEvent event) {
+    // standard access, create new chain
+    this.tasker.newChain()
         // get data from service into chain stack asynchronously
         .supply(() -> this.playerPersistence.get(event.getPlayer()))
         // manipulate the data synchronously
@@ -76,6 +77,7 @@ this.tasker.newChain()
         // because stack data persists between chain parts
         .accept(playerProperties::save)
         .execute();
+}
 ```
 
 ## Real-life uses
@@ -83,6 +85,32 @@ this.tasker.newChain()
 Various snippets directly from the internal okaeri codebase. May and will include 
 code interacting with other libraries like [okaeri-i18n](okaeri-i18n) or references
 to other internal code. All of these were built with [okaeri-platform](https://github.com/OkaeriPoland/okaeri-platform).
+
+### General flow control
+
+Useful when implementing [commands](https://github.com/OkaeriPoland/okaeri-commands) interacting with APIs that cannot be accessed safely asynchronously.
+
+```java
+import static eu.okaeri.tasker.core.TaskerDsl.*;
+
+// class marked with @Async
+
+@Executor
+public TaskerChain<?> __(@Context Player sender, @Chain("hat") BukkitTaskerChain<?> chain) {
+    return chain
+        .abortIfThen(
+            this.tasker.sync(cond(() -> sender.getInventory().getItemInMainHand().getType().isAir())), // sync
+            run(() -> this.i18n.get(this.messages.getHatError()).sendTo(sender)) // async
+        )
+        .runSync(() -> { // sync
+            PlayerInventory inventory = sender.getInventory();
+            ItemStack itemInHand = inventory.getItemInMainHand();
+            inventory.setItemInMainHand(inventory.getHelmet());
+            inventory.setHelmet(itemInHand);
+        })
+        .run(() -> this.i18n.get(this.messages.getHatSuccess()).sendTo(sender)); // async
+}
+```
 
 ### Async book processing
 
@@ -92,19 +120,32 @@ take place without doing blocking I/O in the main thread. Can also be applied in
 ```java
 import static eu.okaeri.tasker.core.TaskerDsl.*;
 
-this.tasker.newChain()
-    .supply(() -> {
-        String contents = this.bookToString(event.getNewBookMeta());
-        return new AsyncPlayerTextEvent(player, contents, "Book").call();
-    })
-    .abortIf(not(AsyncPlayerTextEvent::isCancelled))
-    .runSync(() -> {
-        BookMeta bookMeta = (BookMeta) book.getItemMeta();
-        bookMeta.setPages(event.getPreviousBookMeta().getPages());
-        book.setItemMeta(bookMeta);
-        book.setType(Material.WRITABLE_BOOK);
-    })
-    .execute();
+@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+private void handleEditBook(PlayerEditBookEvent event) {
+
+    Player player = event.getPlayer();
+    ItemStack book = (event.getSlot() == -1)
+        ? player.getInventory().getItemInOffHand()
+        : player.getInventory().getItem(event.getSlot());
+
+    if ((book == null) || (book.getItemMeta() == null)) {
+        return;
+    }
+
+    this.tasker.newChain()
+        .supply(() -> {
+            String contents = this.bookToString(event.getNewBookMeta());
+            return new AsyncPlayerTextEvent(player, contents, "Book").call();
+        })
+        .abortIf(not(AsyncPlayerTextEvent::isCancelled))
+        .runSync(() -> {
+            BookMeta bookMeta = (BookMeta) book.getItemMeta();
+            bookMeta.setPages(event.getPreviousBookMeta().getPages());
+            book.setItemMeta(bookMeta);
+            book.setType(Material.WRITABLE_BOOK);
+        })
+        .execute();
+}
 ```
 
 ### Delayed teleport
@@ -126,7 +167,7 @@ this.tasker.newDelayer(teleportDuration, Duration.ofSeconds(1))
         this.module.teleportToSpawn(player, true);
         this.i18n.get(this.messages.getTeleportationSuccess()).sendTo(player);
     })
-    .execute(this.tasker.async());
+    .execute(this.tasker.getAsync());
 ```
 
 ### Detecting hook landing
@@ -146,5 +187,5 @@ this.tasker.newDelayer(Duration.ofSeconds(10))
             .target(BukkitMessageTarget.ACTION_BAR)
             .sendTo(player);
     })
-    .execute(this.tasker.sync());
+    .execute(this.tasker.getSync());
 ```
