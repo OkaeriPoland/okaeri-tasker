@@ -28,25 +28,25 @@ Add dependency to the `dependencies` section:
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bukkit</artifactId>
-  <version>3.0.2-beta.4</version>
+  <version>3.0.2-beta.5</version>
 </dependency>
 <!-- for velocity (default async) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-velocity</artifactId>
-  <version>3.0.2-beta.4</version>
+  <version>3.0.2-beta.5</version>
 </dependency>
 <!-- for bungee (default async) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-bungee</artifactId>
-  <version>3.0.2-beta.4</version>
+  <version>3.0.2-beta.5</version>
 </dependency>
 <!-- for folia and paper 1.20+ (default async, entity, global, location) -->
 <dependency>
   <groupId>eu.okaeri</groupId>
   <artifactId>okaeri-tasker-folia</artifactId>
-  <version>3.0.2-beta.4</version>
+  <version>3.0.2-beta.5</version>
 </dependency>
 ```
 
