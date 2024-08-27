@@ -5,10 +5,7 @@ import eu.okaeri.tasker.core.TaskerDsl;
 import eu.okaeri.tasker.core.Taskerable;
 import eu.okaeri.tasker.core.context.DefaultTaskerContext;
 import eu.okaeri.tasker.core.context.TaskerContext;
-import eu.okaeri.tasker.core.role.TaskerConsumer;
-import eu.okaeri.tasker.core.role.TaskerFunction;
-import eu.okaeri.tasker.core.role.TaskerPredicate;
-import eu.okaeri.tasker.core.role.TaskerRunnable;
+import eu.okaeri.tasker.core.role.*;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +23,7 @@ import java.util.function.Supplier;
 import static eu.okaeri.tasker.core.TaskerDsl.cond;
 import static eu.okaeri.tasker.core.TaskerDsl.raw;
 import static eu.okaeri.tasker.core.chain.TaskerChainAccessor.DATA_EXCEPTION;
+import static eu.okaeri.tasker.core.chain.TaskerChainAccessor.DATA_VALUE;
 
 @RequiredArgsConstructor
 public class TaskerChain<T> {
@@ -181,11 +179,23 @@ public class TaskerChain<T> {
         return this;
     }
 
-    public TaskerChain<T> abortIfExceptionThen(@NonNull Taskerable<Throwable> taskerable) {
+    public TaskerChain<T> abortIfExceptionThen(@NonNull TaskerConsumer<Throwable> consumer) {
         this.add(ChainTask.builder()
             .condition(accessor -> accessor.has(DATA_EXCEPTION))
             .taskerable(TaskerDsl.raw(accessor -> {
-                taskerable.input(DATA_EXCEPTION).call(accessor).run();
+                consumer.input(DATA_EXCEPTION).call(accessor).run();
+                accessor.abort(accessor.remove(DATA_EXCEPTION) != null);
+            }))
+            .exceptionHandler(true)
+            .build());
+        return this;
+    }
+
+    public TaskerChain<T> abortIfExceptionThen(@NonNull TaskerBiConsumer<Throwable, T> consumer) {
+        this.add(ChainTask.builder()
+            .condition(accessor -> accessor.has(DATA_EXCEPTION))
+            .taskerable(TaskerDsl.raw(accessor -> {
+                consumer.inputTwo(DATA_VALUE).input(DATA_EXCEPTION).call(accessor).run();
                 accessor.abort(accessor.remove(DATA_EXCEPTION) != null);
             }))
             .exceptionHandler(true)

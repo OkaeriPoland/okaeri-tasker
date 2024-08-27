@@ -12,8 +12,16 @@ public class TaskerDsl {
         return new DefaultTaskerConsumer<>(consumer);
     }
 
+    public static <T, S> TaskerBiConsumer<T, S> accept(@NonNull BiConsumer<T, S> consumer) {
+        return new DefaultTaskerBiConsumer<>(consumer);
+    }
+
     public static <T, R> TaskerFunction<T, R> transform(@NonNull Function<T, R> function) {
         return new DefaultTaskerFunction<>(function);
+    }
+
+    public static <T, S, R> TaskerBiFunction<T, S, R> transform(@NonNull BiFunction<T, S, R> function) {
+        return new DefaultTaskerBiFunction<>(function);
     }
 
     public static <T> TaskerPredicate<T> cond(@NonNull Predicate<T> predicate) {

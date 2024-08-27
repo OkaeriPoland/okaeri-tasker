@@ -152,6 +152,29 @@ public class TaskerTest {
     }
 
     @Test
+    public void test_abort_if_exception_then_data() {
+        AtomicReference<Object> watcher = new AtomicReference<>();
+        AtomicReference<Throwable> exception = new AtomicReference<>();
+        AtomicReference<Integer> data = new AtomicReference<>();
+        this.pool.newChain()
+            .supply(() -> 3)
+            .<Integer>supply(() -> {
+                throw new RuntimeException("this should be handled");
+            })
+            .abortIfExceptionThen(accept((ex, i) -> {
+                exception.set(ex);
+                data.set(i);
+            }))
+            .transform(i -> i + 1)
+            .run(() -> watcher.set("failed!"))
+            .join();
+        assertNull(watcher.get());
+        assertNotNull(exception.get());
+        assertEquals(RuntimeException.class, exception.get().getClass());
+        assertEquals(3, data.get());
+    }
+
+    @Test
     public void test_delay() {
         AtomicReference<Instant> start = new AtomicReference<>();
         AtomicReference<Instant> afterDelay = new AtomicReference<>();

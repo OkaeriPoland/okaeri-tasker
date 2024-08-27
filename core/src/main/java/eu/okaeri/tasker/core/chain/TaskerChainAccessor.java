@@ -15,6 +15,7 @@ import java.util.Map;
 public class TaskerChainAccessor {
 
     public static final String DATA_VALUE = "$$__value__$$";
+    public static final String DATA_VALUE_2 = "$$__value2__$$";
     public static final String DATA_EXCEPTION = "$$__exception__$$";
 
     private final Map<String, Object> data = new HashMap<>();
