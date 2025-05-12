@@ -57,13 +57,12 @@ public class Tasker implements Closeable {
 
     public TaskerChain<Object> newSharedChain(@NonNull String name, boolean priority) {
 
-        // no queue, start task
-        if (!this.sharedChainsTasks.containsKey(name)) {
-            Object task = this.platform.getDefaultContext().schedule(() -> this.execSharedChainQueue(name));
-            this.sharedChainsTasks.put(name, task);
-        }
+        // no shared queue with this name available, start the queue task
+        this.sharedChainsTasks.computeIfAbsent(name, s ->
+            this.platform.getDefaultContext().schedule(() -> this.execSharedChainQueue(s))
+        );
 
-        // create chain with target queue
+        // create the chain within the target queue
         return new SharedChain<>(this.newChain(), this.getSharedChainQueue(name, priority));
     }
 
@@ -94,12 +93,9 @@ public class Tasker implements Closeable {
 
         // still locked
         AtomicBoolean lock = this.sharedChainsLocks.computeIfAbsent(name, (n) -> new AtomicBoolean(false));
-        if (lock.get()) {
+        if (!lock.compareAndSet(false, true)) {
             return;
         }
-
-        // lock
-        lock.set(true);
 
         // get queues
         Queue<Runnable> queue = this.getSharedChainQueue(name, false);
@@ -123,7 +119,7 @@ public class Tasker implements Closeable {
                 tasksDone++;
             }
         }
-        // if something bad happens we still want to unlock
+        // if something bad happens, we still want to release the lock
         finally {
             lock.set(false);
         }

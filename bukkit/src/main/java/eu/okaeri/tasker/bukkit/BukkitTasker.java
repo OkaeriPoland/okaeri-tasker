@@ -51,13 +51,12 @@ public class BukkitTasker extends Tasker {
 
     public BukkitTaskerChain<Object> newSharedChain(@NonNull String name, boolean priority) {
 
-        // no queue, start task
-        if (!this.sharedChainsTasks.containsKey(name)) {
-            Object task = this.platform.getDefaultContext().schedule(() -> this.execSharedChainQueue(name));
-            this.sharedChainsTasks.put(name, task);
-        }
+        // no shared queue with this name available, start the queue task
+        this.sharedChainsTasks.computeIfAbsent(name, s ->
+            this.platform.getDefaultContext().schedule(() -> this.execSharedChainQueue(s))
+        );
 
-        // create chain with target queue
+        // create the chain within the target queue
         return new BukkitSharedChain<>(this.newChain(), this.getSharedChainQueue(name, priority));
     }
 

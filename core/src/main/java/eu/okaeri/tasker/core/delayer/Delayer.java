@@ -133,13 +133,11 @@ public class Delayer {
 
     public Delayer execute(@NonNull TaskerContext context) {
 
-        if (this.started.get() != null) {
+        if (!this.started.compareAndSet(null, Instant.now())) {
             throw new RuntimeException("Cannot execute already executed chain");
         }
 
-        this.started.set(Instant.now());
         this.task.set(context.schedule(this::run, this.checkRate));
-
         return this;
     }
 
@@ -195,12 +193,9 @@ public class Delayer {
     }
 
     public boolean cancel() {
-
-        if (this.abort.get()) {
-            return false;
+        if (!this.abort.compareAndSet(false, true)) {
+            return false; // already cancelled
         }
-
-        this.abort.set(true);
         this.platform.cancel(this.task.get());
         return true;
     }
