@@ -38,6 +38,12 @@ public class BukkitTaskerLite {
         return future;
     }
 
+    public static <T> CompletableFuture<T> evalSync(@NonNull Plugin plugin, @NonNull Supplier<T> supplier) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        Bukkit.getServer().getScheduler().runTask(plugin, () -> future.complete(supplier.get()));
+        return future;
+    }
+
     public static <T> T sync(@NonNull Supplier<T> supplier) {
 
         Plugin plugin = context.get();

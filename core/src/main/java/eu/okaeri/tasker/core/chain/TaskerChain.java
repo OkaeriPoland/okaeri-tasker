@@ -221,7 +221,7 @@ public class TaskerChain<T> {
     }
 
     // EXECUTION
-    protected void _execute(Consumer<T> consumer, Consumer<Exception> unhandledExceptionConsumer) {
+    protected void execute0(Consumer<T> consumer, Consumer<Exception> unhandledExceptionConsumer) {
 
         if (this.executed) {
             throw new RuntimeException("Cannot execute already executed chain");
@@ -323,16 +323,20 @@ public class TaskerChain<T> {
     }
 
     public void execute(@NonNull Consumer<T> consumer) {
-        this._execute(consumer, null);
+        this.execute0(consumer, null);
     }
 
     public void execute() {
-        this._execute(null, null);
+        this.execute0(null, null);
     }
 
     public CompletableFuture<T> executeFuture() {
+        return this.executeFuture0();
+    }
+
+    protected CompletableFuture<T> executeFuture0() {
         CompletableFuture<T> future = new CompletableFuture<>();
-        this._execute(data -> {
+        this.execute0(data -> {
             if (this.cancelled) {
                 future.completeExceptionally(new RuntimeException("Chain execution was cancelled"));
             } else if (this.abort) {

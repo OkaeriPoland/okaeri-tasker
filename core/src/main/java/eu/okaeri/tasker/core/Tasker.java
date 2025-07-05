@@ -63,7 +63,7 @@ public class Tasker implements Closeable {
         );
 
         // create the chain within the target queue
-        return new SharedChain<>(this.newChain(), this.getSharedChainQueue(name, priority));
+        return new SharedChain<>(this, this.getSharedChainQueue(name, priority));
     }
 
     public void submit(@NonNull Runnable runnable) {

@@ -57,11 +57,15 @@ public class BukkitTasker extends Tasker {
         );
 
         // create the chain within the target queue
-        return new BukkitSharedChain<>(this.newChain(), this.getSharedChainQueue(name, priority));
+        return new BukkitSharedChain<>(this, this.getSharedChainQueue(name, priority));
     }
 
     public <T> CompletableFuture<T> eval(@NonNull Supplier<T> supplier) {
         return BukkitTaskerLite.eval(this.plugin, supplier);
+    }
+
+    public <T> CompletableFuture<T> evalSync(@NonNull Supplier<T> supplier) {
+        return BukkitTaskerLite.evalSync(this.plugin, supplier);
     }
 
     @Override
