@@ -221,7 +221,7 @@ public class TaskerChain<T> {
     }
 
     // EXECUTION
-    protected void execute0(Consumer<T> consumer, Consumer<Exception> unhandledExceptionConsumer) {
+    protected void execute0(Consumer<T> consumer, Consumer<Throwable> unhandledExceptionConsumer) {
 
         if (this.executed) {
             throw new RuntimeException("Cannot execute already executed chain");
@@ -234,7 +234,7 @@ public class TaskerChain<T> {
         Runnable abortCallback = () -> {
 
             // handle exception after last task
-            Exception unhandled = this.accessor.data(DATA_EXCEPTION);
+            Throwable unhandled = this.accessor.data(DATA_EXCEPTION);
             if (unhandled != null) {
                 if (unhandledExceptionConsumer != null) {
                     unhandledExceptionConsumer.accept(unhandled);
@@ -257,7 +257,7 @@ public class TaskerChain<T> {
         this._executeTask(0, abortCallback, unhandledExceptionConsumer);
     }
 
-    protected void _executeTask(int index, Runnable abortCallback, Consumer<Exception> unhandledExceptionConsumer) {
+    protected void _executeTask(int index, Runnable abortCallback, Consumer<Throwable> unhandledExceptionConsumer) {
 
         // no more tasks
         if (index >= this.tasks.size()) {
