@@ -48,7 +48,7 @@ public class BukkitTaskerLite {
         return future;
     }
 
-    public static <T> T sync(@NonNull Supplier<T> supplier) {
+    public static <T> T await(@NonNull Supplier<T> supplier) {
 
         Plugin plugin = context.get();
         if (plugin == null) {
@@ -62,7 +62,7 @@ public class BukkitTaskerLite {
     }
 
     public static void sync(@NonNull Runnable runnable) {
-        sync(() -> {
+        await(() -> {
             runnable.run();
             return null;
         });
