@@ -55,6 +55,7 @@ public class SharedChain<T> extends TaskerChain<T> {
         return this.executeFuture().get(timeout, unit);
     }
 
+    @Override
     @SneakyThrows
     public T join() {
         try {

@@ -60,6 +60,7 @@ public class BukkitTasker extends Tasker {
         return new BukkitSharedChain<>(this, this.getSharedChainQueue(name, priority));
     }
 
+    @Override
     public <T> CompletableFuture<T> eval(@NonNull Supplier<T> supplier) {
         return BukkitTaskerLite.eval(this.plugin, supplier);
     }

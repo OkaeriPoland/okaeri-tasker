@@ -14,11 +14,13 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class Tasker implements Closeable {
@@ -66,12 +68,18 @@ public class Tasker implements Closeable {
         return new SharedChain<>(this, this.getSharedChainQueue(name, priority));
     }
 
+    public <T> CompletableFuture<T> eval(@NonNull Supplier<T> supplier) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        this.submit(() -> future.complete(supplier.get()));
+        return future;
+    }
+
     public void submit(@NonNull Runnable runnable) {
-        newChain().run(runnable).execute();
+        this.newChain().run(runnable).execute();
     }
 
     public Future<?> submitFuture(@NonNull Runnable runnable) {
-        return newChain().run(runnable).executeFuture();
+        return this.newChain().run(runnable).executeFuture();
     }
 
     public void submitShared(@NonNull String name, boolean priority, @NonNull Runnable runnable) {
