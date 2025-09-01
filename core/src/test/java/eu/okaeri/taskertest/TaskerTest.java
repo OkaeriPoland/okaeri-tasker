@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -205,6 +206,20 @@ public class TaskerTest {
         this.pool.newSharedChain("test")
             .run(counter::incrementAndGet)
             .join();
+        assertEquals(2, counter.get());
+    }
+
+    @Test
+    public void test_shared_actually_queues() {
+        AtomicInteger counter = new AtomicInteger();
+        CompletableFuture<Object> future1 = this.pool.newSharedChain("test")
+            .delay(Duration.ofMillis(100))
+            .run(() -> counter.set(1))
+            .executeFuture();
+        CompletableFuture<Object> future2 = this.pool.newSharedChain("test")
+            .run(() -> counter.set(2))
+            .executeFuture();
+        CompletableFuture.allOf(future1, future2).join();
         assertEquals(2, counter.get());
     }
 
