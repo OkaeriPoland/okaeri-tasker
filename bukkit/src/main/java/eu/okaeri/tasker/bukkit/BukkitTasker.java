@@ -74,6 +74,13 @@ public class BukkitTasker extends Tasker {
         BukkitTaskerLite.submit(this.plugin, runnable);
     }
 
+    public void submitSync(@NonNull Runnable runnable) {
+        this.evalSync(() -> {
+            runnable.run();
+            return null;
+        });
+    }
+
     @Override
     public Future<?> submitFuture(@NonNull Runnable runnable) {
         return BukkitTaskerLite.submitFuture(this.plugin, runnable);
