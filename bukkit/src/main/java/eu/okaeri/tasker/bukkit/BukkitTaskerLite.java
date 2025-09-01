@@ -14,15 +14,19 @@ public class BukkitTaskerLite {
 
     private static final @Getter ThreadLocal<Plugin> context = new ThreadLocal<>();
 
-    public static void submit(@NonNull Plugin plugin, @NonNull Runnable runnable) {
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+    public static Runnable withContext(@NonNull Plugin plugin, @NonNull Runnable runnable) {
+        return () -> {
             try {
-                context.set(plugin);
+                BukkitTaskerLite.getContext().set(plugin);
                 runnable.run();
             } finally {
-                context.remove();
+                BukkitTaskerLite.getContext().remove();
             }
-        });
+        };
+    }
+
+    public static void submit(@NonNull Plugin plugin, @NonNull Runnable runnable) {
+        Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, withContext(plugin, runnable));
     }
 
     public static CompletableFuture<?> submitFuture(@NonNull Plugin plugin, @NonNull Runnable runnable) {
