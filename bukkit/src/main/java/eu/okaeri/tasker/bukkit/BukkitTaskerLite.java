@@ -48,11 +48,11 @@ public class BukkitTaskerLite {
         return future;
     }
 
-    public static <T> T await(@NonNull Supplier<T> supplier) {
+    public static <T> T join(@NonNull Supplier<T> supplier) {
 
         Plugin plugin = context.get();
         if (plugin == null) {
-            throw new RuntimeException("Unknown context! BukkitTaskerLite#await can only be used in #submit or #eval thread.");
+            throw new RuntimeException("Unknown context! BukkitTaskerLite#join can only be used in #submit or #eval thread.");
         }
 
         CompletableFuture<T> future = new CompletableFuture<>();
@@ -62,10 +62,20 @@ public class BukkitTaskerLite {
     }
 
     public static void sync(@NonNull Runnable runnable) {
-        await(() -> {
+        join(() -> {
             runnable.run();
             return null;
         });
+    }
+
+    public static void detach(@NonNull Runnable runnable) {
+
+        Plugin plugin = context.get();
+        if (plugin == null) {
+            throw new RuntimeException("Unknown context! BukkitTaskerLite#detach can only be used in #submit or #eval thread.");
+        }
+
+        Bukkit.getServer().getScheduler().runTask(plugin, runnable);
     }
 
     @SneakyThrows
